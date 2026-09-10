@@ -123,10 +123,16 @@ class EmbeddingTests(unittest.TestCase):
         ):
             with (
                 self.subTest(usage=usage),
-                real_config(embedding_provider="gemini", gemini_api_key="test", embedding_dim=2),
-                patch("app.services.embeddings.post_json", return_value={
-                    "embeddings": [{"values": [1, 0]}], "usageMetadata": usage,
-                }),
+                real_config(
+                    embedding_provider="gemini", gemini_api_key="test", embedding_dim=2
+                ),
+                patch(
+                    "app.services.embeddings.post_json",
+                    return_value={
+                        "embeddings": [{"values": [1, 0]}],
+                        "usageMetadata": usage,
+                    },
+                ),
                 patch("app.services.embeddings.record_embedding_usage") as record,
             ):
                 embed(["text"], "document")

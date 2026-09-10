@@ -10,6 +10,12 @@ class ServiceError(Exception):
         super().__init__(self.message)
 
 
+class QueueUnavailable(ServiceError):
+    status_code = 503
+    code = "queue_unavailable"
+    message = "Hàng đợi xử lý tài liệu hiện không khả dụng."
+
+
 class ProviderError(ServiceError):
     status_code = 502
     code = "provider_error"

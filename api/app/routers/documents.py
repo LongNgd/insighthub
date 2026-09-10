@@ -1,43 +1,60 @@
-"""Synchronous upload contract: 201 only after processing succeeds."""
+"""Asynchronous document upload contract backed by the ingestion queue."""
 
 from fastapi import APIRouter, HTTPException, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
 from app.core.db import get_conn
-from app.core.errors import InvalidDocument
-from app.services.ingestion import ingest_document_sync
+from app.core.errors import InvalidDocument, QueueUnavailable
+from app.core.queue import enqueue_ingestion
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 ALLOWED_EXT = (".txt", ".md", ".pdf")
 
 
-@router.post("", status_code=201)
-def upload_document(file: UploadFile):
+def _create_pending(filename: str) -> int:
+    with get_conn() as conn:
+        return conn.execute(
+            "INSERT INTO documents (filename, status) VALUES (%s, 'pending') RETURNING id",
+            (filename,),
+        ).fetchone()[0]
+
+
+def _mark_enqueue_failed(document_id: int) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE documents SET status = 'failed', chunk_count = 0, "
+            "embedding_identity_id = NULL, error_code = %s WHERE id = %s",
+            (QueueUnavailable.code, document_id),
+        )
+
+
+@router.post("", status_code=202)
+async def upload_document(file: UploadFile):
     try:
         if not file.filename or not file.filename.lower().endswith(ALLOWED_EXT):
             raise HTTPException(400, "Chỉ chấp nhận: .txt, .md, .pdf")
         if len(file.filename) > 255 or "\x00" in file.filename:
             raise HTTPException(422, "Tên file không hợp lệ.")
-        content = file.file.read(get_settings().max_upload_bytes + 1)
+        content = await file.read(get_settings().max_upload_bytes + 1)
     finally:
-        file.file.close()
+        await file.close()
     if len(content) > get_settings().max_upload_bytes:
         raise HTTPException(413, "File vượt quá giới hạn upload.")
     if not content:
         raise InvalidDocument()
-    with get_conn() as conn:
-        document_id = conn.execute(
-            "INSERT INTO documents (filename, status) VALUES (%s, 'pending') RETURNING id",
-            (file.filename,),
-        ).fetchone()[0]
-    # Day 1: students replace this synchronous call with a durable queue.
-    chunk_count = ingest_document_sync(document_id, file.filename, content)
+    document_id = await run_in_threadpool(_create_pending, file.filename)
+    try:
+        await enqueue_ingestion(document_id, file.filename, content)
+    except QueueUnavailable:
+        await run_in_threadpool(_mark_enqueue_failed, document_id)
+        raise
     settings = get_settings()
     return {
         "id": document_id,
         "filename": file.filename,
-        "status": "ready",
-        "chunk_count": chunk_count,
+        "status": "pending",
+        "chunk_count": 0,
         "mode": settings.rag_mode,
         "embedding_identity_id": settings.embedding_identity_id,
     }

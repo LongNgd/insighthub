@@ -11,6 +11,7 @@ os.environ.update(
     LLM_MODEL="",
     EMBEDDING_MODEL="",
     EMBEDDING_DIM="1024",
+    REDIS_URL="redis://redis:6379/0",
 )
 from app.core.config import get_settings
 
@@ -26,6 +27,7 @@ def configured(**values):
         "LLM_MODEL": "",
         "EMBEDDING_MODEL": "",
         "EMBEDDING_DIM": "1024",
+        "REDIS_URL": "redis://redis:6379/0",
         "GEMINI_API_KEY": "",
         "ANTHROPIC_API_KEY": "",
         "VOYAGE_API_KEY": "",

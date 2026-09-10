@@ -22,13 +22,13 @@ Không chạy `docker compose config` có nội dung lên log công khai khi đ�
 |---|---|---|
 | Liveness và cấu hình mode | GET /healthz | HTTP 200 khi process sống |
 | Readiness DB/schema/index | GET /readyz | 200 sẵn sàng, 503 chưa sẵn sàng |
-| Upload .txt/.md/.pdf | POST /documents, multipart field file | 201; sync ingestion trong starter |
+| Upload .txt/.md/.pdf | POST /documents, multipart field file | 202 `pending`; worker xử lý qua Redis/ARQ |
 | Xem trạng thái | GET /documents | Danh sách chứa id, status, chunk_count |
 | Xóa tài liệu của lab | DELETE /documents/{id} | Xóa tài liệu và chunks |
 | Hỏi đáp | POST /chat với question | answer, sources và contexts |
 | Telemetry | GET /metrics | Prometheus exposition |
 
-Không có endpoint /upload hay /documents/{id}/status trong contract này. Smoke hiểu cả sync 201 và async 202, poll GET /documents tới ready hoặc failed với deadline. Frontend cũng hỗ trợ pending để dùng sau bài Day 1 worker.
+Không có endpoint /upload hay /documents/{id}/status trong contract này. Poll `GET /documents` đúng ID tới `ready` hoặc `failed` với deadline; frontend tự poll khi còn document `pending`.
 
 ## 3. Test baseline
 ```bash
@@ -76,7 +76,7 @@ AWS chỉ dùng sau local gate và phải xóa ngay cuối mỗi lượt thực 
 Khi bắt đầu nộp bài Day 1-6, tạo venv riêng và cài `python -m pip install --require-hashes -r scripts/requirements-verification.txt`. Baseline verifier regression dùng Python standard library. Chi tiết tên scenario/artifact ở scripts/VERIFICATION_CONTRACT.md.
 
 ## Ranh giới starter và milestone
-Smoke sync201 chỉ xác minh starter. Day 1 bắt buộc async202/worker; không dùng smoke starter thay verify-day-1. Sau đó tiếp tục đủ task trong spec v3.3; gateway/MCP mẫu/bot skeleton không làm sẵn bài học viên.
+Day 1 bắt buộc async202/worker và phải dùng `verify-day-1` với evidence phù hợp; smoke chung không thay thế verifier milestone. Sau đó tiếp tục đủ task trong spec v3.3; gateway/MCP mẫu/bot skeleton không làm sẵn bài học viên.
 
 ## Học liệu trước buổi
 Đọc 7 Knowledge Content và 7 Tool Guideline trong gói AI_DevOps_HocLieu_v2.0 DO2603 do mentor cung cấp, theo 00_INDEX.md của gói. Ví dụ ParcelOps luyện công cụ độc lập; bài nộp vẫn là InsightHub theo specification trong repo. Không cần sao chép học liệu vào code base.

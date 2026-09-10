@@ -1,4 +1,4 @@
-"""InsightHub synchronous starter API."""
+"""InsightHub API with asynchronous document ingestion."""
 
 import logging
 from contextlib import asynccontextmanager
@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.core.db import close_pool, get_conn, initialize_database
 from app.core.errors import ServiceError
 from app.core.metrics import documents_total, http_requests_total
+from app.core.queue import close_queue, initialize_queue
 from app.core.upload_limit import UploadLimitMiddleware
 from app.routers import chat, documents, health
 
@@ -27,12 +28,14 @@ for name in ("httpx", "httpcore", "pypdf", "psycopg.pool"):
 async def lifespan(app: FastAPI):
     try:
         await run_in_threadpool(initialize_database)
+        await initialize_queue()
         yield
     finally:
+        await close_queue()
         await run_in_threadpool(close_pool)
 
 
-app = FastAPI(title=settings.app_name, version="0.2.3", lifespan=lifespan)
+app = FastAPI(title=settings.app_name, version="0.3.0", lifespan=lifespan)
 app.add_middleware(UploadLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -105,7 +108,7 @@ app.include_router(chat.router)
 def root():
     return {
         "service": settings.app_name,
-        "version": "0.2.3",
+        "version": "0.3.0",
         "docs": "/docs",
         "mode": settings.rag_mode,
     }

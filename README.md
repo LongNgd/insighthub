@@ -28,10 +28,10 @@ InsightHub cho phép người dùng upload tài liệu **.txt, .md, .pdf**, sau 
 ### v0 - Trạng thái khởi đầu: ba service
 
 ~~~text
-web (Next.js) --> api (FastAPI, ingestion đồng bộ) --> postgres (pgvector)
+web (Next.js) --> api (FastAPI) --> redis --> ingestion-worker --> postgres
 ~~~
 
-App nền tảng có giao diện upload/chat, API tài liệu, chunking, embedding, retrieval, generation và metrics cơ bản. Upload được xử lý đồng bộ và trả **HTTP 201** khi hoàn tất. Đây là điểm xuất phát để học viên refactor ở Day 1.
+App có giao diện upload/chat, API tài liệu, chunking, embedding, retrieval, generation và metrics cơ bản. Upload được enqueue qua Redis/ARQ, trả **HTTP 202** ở trạng thái `pending`, rồi worker xử lý nền.
 
 ### v1 - Sau refactor Day 1: năm service
 
@@ -41,15 +41,15 @@ web --> api --> enqueue --> redis --> ingestion-worker --> postgres
          +------------ retrieval + LLM generation ------------+
 ~~~
 
-API trả **HTTP 202** khi nhận job; worker xử lý nền và cập nhật trạng thái tài liệu. Web/API tiếp tục phục vụ khi worker xử lý ingestion. Redis và worker là phần học viên phải triển khai, chưa được bật sẵn trong starter.
+API trả **HTTP 202** khi nhận job; worker xử lý nền và cập nhật trạng thái tài liệu. Web/API tiếp tục phục vụ khi worker xử lý ingestion. Redis và worker là service bắt buộc trong cấu hình Day 1.
 
 | Service | Công nghệ | Vai trò và trạng thái |
 |---|---|---|
 | `web` | Next.js 16.3.4, React 19.2.8, Node 24 | Giao diện upload/chat; đã có trong v0 |
-| `api` | FastAPI, Python 3.12, psycopg 3 | API tài liệu, retrieval/generation; ingestion còn đồng bộ ở v0 |
+| `api` | FastAPI, Python 3.12, psycopg 3 | API tài liệu, enqueue, retrieval và generation |
 | `postgres` | PostgreSQL 16, pgvector 0.8.2 | Metadata, chunks và vector store; đã có trong v0 |
-| `redis` | Redis 7 | Queue cho ingestion; học viên thêm Day 1 |
-| `ingestion-worker` | Python + ARQ | Chunk/embed/store bất đồng bộ, retry và xử lý lỗi; học viên tách Day 1 |
+| `redis` | Redis 7 | Queue bền vững cho ingestion |
+| `ingestion-worker` | Python + ARQ | Chunk/embed/store bất đồng bộ, retry và xử lý lỗi |
 
 `ollama` là profile tùy chọn để chạy model local, không thay Redis/worker và không tính vào năm thành phần bắt buộc của Day 1. Model generation và embedding là hai chức năng riêng.
 
@@ -127,8 +127,8 @@ Cấu hình `RAG_MODE=real`, hai provider `ollama`, endpoint/chat model, rồi t
 ~~~text
 insighthub/
 ├── web/                      # Frontend được cung cấp
-├── api/                      # API được cung cấp; refactor sync ingestion Day 1
-├── ingestion-worker/         # Scaffold để học viên triển khai Day 1
+├── api/                      # API enqueue, retrieval và generation
+├── ingestion-worker/         # ARQ worker cho async ingestion
 ├── infra/
 │   ├── db/init.sql           # Schema PostgreSQL/pgvector được cung cấp
 │   └── README.md             # Học viên bổ sung Terraform/Helm/IaC Day 3
@@ -177,7 +177,7 @@ Giữ đủ **70 Must-have Day 1-6**, rubric và điều kiện đạt của [sp
 
 ## Lưu ý kỹ thuật và vận hành
 
-- Ingestion đồng bộ ở v0 là điểm refactor bắt buộc Day 1. Sau refactor, cập nhật tests đúng contract 202/worker và giữ các kiểm tra validation, retry/idempotency.
+- Ingestion Day 1 chạy qua Redis/ARQ: API trả 202 và worker cập nhật `ready`/`failed`; các kiểm tra validation, retry/idempotency vẫn được giữ.
 - PostgreSQL/pgvector image và dependencies đã pin trong Compose/lock files; không tự đổi sang latest. Đổi embedding identity cần reindex, không sửa vector để che lỗi.
 - Corpus, log và tool output là dữ liệu chưa tin cậy. Không commit .env, API key, tfstate, kubeconfig hoặc secret vào source/evidence.
 - Stack mặc định bind web/API trên loopback; DB không publish port. Starter chưa có authentication cho public deployment. Trước khi mở truy cập LIVE, hoàn thiện access control và các yêu cầu triển khai của bài.

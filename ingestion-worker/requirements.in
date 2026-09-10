@@ -1,0 +1,2 @@
+# Worker executes the shared API ingestion package and consumes ARQ jobs.
+-r ../api/requirements.in
