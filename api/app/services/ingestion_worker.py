@@ -80,9 +80,7 @@ async def ingest_document(
             attempt=attempt,
         )
         raise
-    _log_event(
-        "ingestion_completed", document_id, "ready", chunk_count=chunk_count
-    )
+    _log_event("ingestion_completed", document_id, "ready", chunk_count=chunk_count)
     return chunk_count
 
 

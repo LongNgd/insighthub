@@ -27,7 +27,10 @@ def test_empty_input():
     status, error, _ = upload(content=b"")
     assert status == 422
     assert error["code"] == "invalid_document"
-    assert error["detail"] == "Tài liệu trống, không hợp lệ hoặc không có nội dung văn bản."
+    assert (
+        error["detail"]
+        == "Tài liệu trống, không hợp lệ hoặc không có nội dung văn bản."
+    )
 
     status, after = request("/documents")
     assert status == 200

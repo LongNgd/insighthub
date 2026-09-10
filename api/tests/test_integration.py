@@ -117,9 +117,7 @@ class IntegrationTests(unittest.TestCase):
             ).fetchone()
 
     def upload_and_process(self, filename="test.txt", content=b"content"):
-        response = self.client.post(
-            "/documents", files={"file": (filename, content)}
-        )
+        response = self.client.post("/documents", files={"file": (filename, content)})
         self.assertEqual(response.status_code, 202, response.text)
         document = response.json()
         self.assertEqual((document["status"], document["chunk_count"]), ("pending", 0))

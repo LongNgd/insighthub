@@ -32,9 +32,13 @@ def upload(
     boundary = "InsightHub" + uuid.uuid4().hex
     upload_filename = filename or "day1-" + uuid.uuid4().hex + ".md"
     body = (
-        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{upload_filename}"\r\n'
-        "Content-Type: text/markdown\r\n\r\n"
-    ).encode() + content + f"\r\n--{boundary}--\r\n".encode()
+        (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{upload_filename}"\r\n'
+            "Content-Type: text/markdown\r\n\r\n"
+        ).encode()
+        + content
+        + f"\r\n--{boundary}--\r\n".encode()
+    )
     started = time.monotonic()
     status, document = request(
         "/documents", body, "multipart/form-data; boundary=" + boundary
