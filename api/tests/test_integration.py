@@ -10,7 +10,7 @@ from pathlib import Path
 import threading
 import unittest
 import uuid
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from support import configured, real_config
 import psycopg
@@ -24,6 +24,7 @@ from app.core.errors import (
     DocumentConflict,
     IndexIdentityConflict,
     ProviderError,
+    QueueUnavailable,
     SchemaMismatch,
 )
 from app.core.index import check_schema
@@ -93,6 +94,11 @@ class IntegrationTests(unittest.TestCase):
                 "TRUNCATE chunks, documents, embedding_index RESTART IDENTITY CASCADE"
             )
         self.client = TestClient(app)
+        self.enqueue = patch(
+            "app.routers.documents.enqueue_ingestion", new_callable=AsyncMock
+        )
+        self.enqueue_mock = self.enqueue.start()
+        self.addCleanup(self.enqueue.stop)
 
     def create_document(self, filename="test.txt"):
         with db.get_conn() as conn:
@@ -110,6 +116,16 @@ class IntegrationTests(unittest.TestCase):
                 (document_id,),
             ).fetchone()
 
+    def upload_and_process(self, filename="test.txt", content=b"content"):
+        response = self.client.post(
+            "/documents", files={"file": (filename, content)}
+        )
+        self.assertEqual(response.status_code, 202, response.text)
+        document = response.json()
+        self.assertEqual((document["status"], document["chunk_count"]), ("pending", 0))
+        process_document(document["id"], filename, content)
+        return document
+
     def test_fixture_upload_retrieve_chat_metrics_delete_end_to_end(self):
         self.assertEqual(self.client.get("/readyz").status_code, 200)
         self.assertEqual(
@@ -118,10 +134,11 @@ class IntegrationTests(unittest.TestCase):
         response = self.client.post(
             "/documents", files={"file": ("rag.txt", b"RAG uses retrieved documents.")}
         )
-        self.assertEqual(response.status_code, 201, response.text)
+        self.assertEqual(response.status_code, 202, response.text)
         document = response.json()
         self.assertEqual(document["mode"], "fixture")
-        self.assertEqual(document["chunk_count"], 1)
+        self.assertEqual((document["status"], document["chunk_count"]), ("pending", 0))
+        process_document(document["id"], "rag.txt", b"RAG uses retrieved documents.")
         self.assertEqual(self.client.get("/documents").json()[0]["status"], "ready")
         chat = self.client.post(
             "/chat", json={"question": "RAG uses retrieved documents."}
@@ -163,6 +180,19 @@ class IntegrationTests(unittest.TestCase):
         state = self.state(document_id)
         self.assertEqual((state[0], state[1], state[4]), ("ready", first, first))
         self.assertIsNotNone(state[2])
+
+    def test_enqueue_failure_marks_document_failed_with_safe_error(self):
+        self.enqueue_mock.side_effect = QueueUnavailable()
+        response = self.client.post(
+            "/documents", files={"file": ("queue.txt", b"content")}
+        )
+        self.assertEqual(response.status_code, 503, response.text)
+        self.assertEqual(response.json()["code"], "queue_unavailable")
+        document = self.client.get("/documents").json()[0]
+        self.assertEqual(
+            (document["status"], document["chunk_count"], document["error_code"]),
+            ("failed", 0, "queue_unavailable"),
+        )
 
     def test_concurrent_successful_retries_call_provider_once(self):
         document_id = self.create_document()
@@ -259,17 +289,19 @@ class IntegrationTests(unittest.TestCase):
         state = self.state(document_id)
         self.assertEqual((state[0], state[1], state[4]), ("failed", 0, 0))
 
-    def test_empty_extracted_text_is_failed_and_422(self):
+    def test_empty_extracted_text_is_failed_by_worker(self):
         response = self.client.post(
             "/documents", files={"file": ("empty.txt", b" \n ")}
         )
-        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(response.status_code, 202, response.text)
+        with self.assertRaises(Exception):
+            process_document(response.json()["id"], "empty.txt", b" \n ")
         document = self.client.get("/documents").json()[0]
         self.assertEqual(document["status"], "failed")
         self.assertEqual(document["chunk_count"], 0)
 
     def test_index_identity_change_rejects_query_upload_and_readiness(self):
-        self.client.post("/documents", files={"file": ("test.txt", b"content")})
+        self.upload_and_process("test.txt", b"content")
         with (
             configured(embedding_revision="2"),
             patch("app.services.retrieval.embed") as provider,
@@ -280,7 +312,9 @@ class IntegrationTests(unittest.TestCase):
             response = self.client.post(
                 "/documents", files={"file": ("new.txt", b"new content")}
             )
-            self.assertEqual(response.status_code, 409, response.text)
+            self.assertEqual(response.status_code, 202, response.text)
+            with self.assertRaises(IndexIdentityConflict):
+                process_document(response.json()["id"], "new.txt", b"new content")
             self.assertEqual(self.client.get("/readyz").status_code, 503)
         with db.get_conn() as conn:
             self.assertEqual(
@@ -288,7 +322,7 @@ class IntegrationTests(unittest.TestCase):
             )
 
     def test_same_dimension_real_provider_cannot_query_fixture_index(self):
-        self.client.post("/documents", files={"file": ("test.txt", b"content")})
+        self.upload_and_process("test.txt", b"content")
         with real_config(), patch("app.services.retrieval.embed") as provider:
             with self.assertRaises(IndexIdentityConflict):
                 retrieve("question")
@@ -328,14 +362,15 @@ class IntegrationTests(unittest.TestCase):
             upload = self.client.post(
                 "/documents", files={"file": ("real.txt", b"content")}
             )
-            self.assertEqual(upload.status_code, 201, upload.text)
+            self.assertEqual(upload.status_code, 202, upload.text)
+            process_document(upload.json()["id"], "real.txt", b"content")
             chat = self.client.post("/chat", json={"question": "question"})
             self.assertEqual(chat.status_code, 200, chat.text)
             self.assertEqual(chat.json()["mode"], "real")
             self.assertEqual(chat.json()["usage"]["input_tokens"], 12)
             self.assertEqual(chat.json()["usage"]["source"], "provider")
 
-    def test_provider_failure_is_502_and_metadata_truthful(self):
+    def test_provider_failure_in_worker_keeps_metadata_truthful(self):
         with (
             real_config(),
             patch("app.services.embeddings.post_json", side_effect=ProviderError()),
@@ -343,7 +378,13 @@ class IntegrationTests(unittest.TestCase):
             response = self.client.post(
                 "/documents", files={"file": ("real.txt", b"content")}
             )
-        self.assertEqual(response.status_code, 502, response.text)
+        self.assertEqual(response.status_code, 202, response.text)
+        with (
+            real_config(),
+            patch("app.services.embeddings.post_json", side_effect=ProviderError()),
+            self.assertRaises(ProviderError),
+        ):
+            process_document(response.json()["id"], "real.txt", b"content")
         document = self.client.get("/documents").json()[0]
         self.assertEqual(
             (document["status"], document["chunk_count"], document["error_code"]),
