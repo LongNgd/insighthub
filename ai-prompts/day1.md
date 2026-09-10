@@ -58,7 +58,7 @@ Phê duyệt sau PLAN:
 **Host**: ChatGPT-Codex
 **Version / Model / Auth mode**: Codex desktop / GPT-5.6 Sol / OAuth
 **Context / Evidence**: `api/app/routers/documents.py`; `api/app/services/ingestion.py`; `api/app/core/{config,db,errors,index}.py`; `api/app/services/{embeddings,llm}.py`; `api/tests/`; `docker-compose.yml`; `api/Dockerfile`; `api/requirements.in`; `ingestion-worker/README.md`; `docs/lab-guides/Day1-AI-Coding-Agents.md`; `Running-Project-Specification-Student.md`; `scripts/VERIFICATION_CONTRACT.md`; `scripts/verify.py`.
-**Time**: 2026-09-10 (Asia/Saigon)
+**Time**: 2026-09-10 10:53:46 +07:00 (Asia/Saigon)
 
 **Prompt**:
 
@@ -201,3 +201,88 @@ Output ở bước PLAN phải kết thúc bằng câu hỏi xin phê duyệt r�
 - Thêm đủ năm Compose service, dependency locks, tests async/retry/idempotency và tài liệu Day 1 liên quan.
 - Manual verified upload dưới một giây → `pending` → `ready` → chat HTTP 200; backend suite tương đương Make target đạt 54/54 và unit suite đạt 41/41.
 - Không báo PASS cho `make test-verifiers`, host `npm typecheck` hoặc `verify-day-1.sh` vì các lệnh này gặp giới hạn tooling/quyền trên host Windows.
+
+## Prompt 3 - Controlled retry cho ingestion-worker
+
+**Host**: ChatGPT-Codex
+**Version / Model / Auth mode**: Codex desktop / GPT-5.6 Sol / OAuth
+**Context / Evidence**: `api/app/services/ingestion_worker.py`; `api/app/services/ingestion.py`; `api/app/core/errors.py`; `api/tests/test_unit_worker.py`; `api/tests/test_integration.py`; `tests/milestones/day1/`.
+**Time**: 2026-09-10 16:22:41 +07:00 (Asia/Saigon)
+
+**Prompt**:
+
+### 1. Mục tiêu (Goal)
+
+Bổ sung retry có kiểm soát cho ingestion-worker sử dụng ARQ.
+
+Worker retry khi gặp lỗi tạm thời, nhưng không retry tài liệu không hợp lệ. Retry không được tạo duplicate chunks hoặc ghi đè document đã xử lý thành công.
+
+### 2. Ràng buộc (Constraints - PHẢI TUÂN THỦ)
+
+- KHÔNG thay đổi API contract hoặc database schema.
+- Chỉ áp dụng retry cho ingestion, không chuyển chat/retrieval sang worker.
+- Dùng retry mechanism của ARQ.
+- Retry tối đa 3 lần với exponential backoff: 1 giây, 2 giây.
+- Lỗi provider/service tạm thời được retry.
+- Lỗi document không hợp lệ, conflict hoặc schema mismatch không được retry.
+- Retry cùng document ID và payload không được tạo duplicate chunks.
+- Failure đến muộn không được ghi đè document đã `ready`.
+- Final failure phải đặt document thành `failed`, `chunk_count = 0` và không để lại partial chunks.
+- Không log document content, credential, raw provider error hoặc job payload.
+- Không hardcode secret; dùng environment variables.
+- Giữ type hints và style hiện tại.
+- Không sửa verifier hoặc làm yếu tests.
+
+### 3. Tiêu chí thành công (Acceptance Criteria)
+
+- Lỗi tạm thời được retry tối đa 3 lần với backoff 1 giây, 2 giây.
+- Document không hợp lệ thất bại ngay, không retry.
+- Retry thành công chuyển document sang `ready`.
+- Retry hoặc duplicate delivery không tạo duplicate chunks.
+- Final failure chuyển document sang `failed` an toàn.
+- Bổ sung tests cho:
+  - transient failure và backoff;
+  - invalid document không retry;
+  - retry tối đa 3 lần;
+  - retry idempotent;
+  - failure không để lại partial chunks.
+- Các backend tests hiện có vẫn PASS.
+
+### 4. Pattern tham chiếu (Reference)
+
+Đọc trước khi sửa:
+
+- `api/app/services/ingestion.py`
+- `api/app/services/ingestion_worker.py`
+- `api/app/core/errors.py`
+- `api/tests/test_integration.py`
+- `api/tests/test_unit_worker.py`
+
+Tái sử dụng idempotency, row locking, atomic chunk replacement và failure handling trong `process_document()`.
+
+### 5. Quy trình thực hiện (Process / Output Expected)
+
+1. Kiểm tra retry và error handling hiện tại.
+2. Trình bày PLAN gồm file cần sửa, phân loại lỗi, retry policy và test plan.
+3. ĐỢI TÔI DUYỆT PLAN rồi mới sửa file.
+4. Sau khi được duyệt, triển khai với diff tối thiểu.
+5. Chạy tests và báo cáo từng lệnh là `PASS`, `FAIL` hoặc `NOT RUN`.
+6. Giải thích diff, cách manual test và các phần chưa kiểm chứng.
+
+Output đầu tiên chỉ chứa PLAN và phải hỏi tôi phê duyệt trước khi triển khai.
+
+**Why it worked**:
+
+- Constraint-first prompt giới hạn thay đổi trong retry policy của ingestion-worker và không làm ảnh hưởng API, chat hoặc database schema.
+- Phân loại rõ lỗi tạm thời và lỗi vĩnh viễn giúp tránh retry tài liệu không hợp lệ.
+- Các tiêu chí về idempotency, atomicity và late failure giữ nguyên invariant của `process_document()`.
+- Yêu cầu test các failure path giúp kiểm chứng retry thực tế thay vì chỉ kiểm tra cấu trúc code.
+
+**What I changed**:
+
+- Thêm ARQ retry tối đa ba lần với exponential backoff 1 giây và 2 giây.
+- Chỉ retry lỗi provider/service tạm thời; document không hợp lệ, conflict và schema mismatch thất bại ngay.
+- Giữ cùng document/job identity để retry không tạo duplicate chunks.
+- Bảo toàn atomic chunk replacement và ngăn failure đến muộn ghi đè document đã `ready`.
+- Bổ sung unit tests cho retry policy và milestone test `test_retry_idempotent`.
+- Feature này đã được triển khai trong lượt refactor ở Prompt 2; Prompt 3 ghi lại riêng phần controlled retry, không đại diện cho một lượt triển khai độc lập mới.
