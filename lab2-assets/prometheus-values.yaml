@@ -1,0 +1,21 @@
+alertmanager:
+  enabled: false
+
+pushgateway:
+  enabled: false
+
+kube-state-metrics:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: false
+
+server:
+  persistentVolume:
+    enabled: false
+  extraScrapeConfigs: |
+    - job_name: metrics-demo
+      metrics_path: /metrics
+      static_configs:
+        - targets:
+            - metrics-demo.insighthub.svc.cluster.local:8088
