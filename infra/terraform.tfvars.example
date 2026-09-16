@@ -1,0 +1,20 @@
+aws_region       = "ap-southeast-1"
+eks_cluster_name = "insighthub-prod-cluster"
+vpc_id           = "vpc-0123456789abcdef0"
+private_subnet_ids = [
+  "subnet-0123456789abcdef0",
+  "subnet-0123456789abcdef1",
+]
+workload_security_group_ids = [
+  "sg-0123456789abcdef0",
+]
+
+project     = "insighthub"
+environment = "production"
+owner       = "replace-me"
+cost_center = "replace-me"
+
+# Lab defaults allow teardown without a retained snapshot. For long-lived
+# production data, enable deletion protection and retain a final snapshot.
+deletion_protection = false
+skip_final_snapshot = true

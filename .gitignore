@@ -26,6 +26,9 @@ yarn-error.log*
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+*.tfplan
+tfplan.json
+crash.log
 
 # --- IDE / OS ---
 .vscode/
