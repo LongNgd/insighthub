@@ -1,0 +1,134 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.15.8",
+  "resource_changes": [
+    {
+      "address": "aws_eks_cluster.forbidden",
+      "mode": "managed",
+      "type": "aws_eks_cluster",
+      "change": {
+        "actions": ["create"],
+        "after": {"name": "unexpected-cluster"},
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_user.forbidden",
+      "mode": "managed",
+      "type": "aws_iam_user",
+      "change": {
+        "actions": ["create"],
+        "after": {"name": "insighthub-user"},
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_access_key.forbidden",
+      "mode": "managed",
+      "type": "aws_iam_access_key",
+      "change": {
+        "actions": ["create"],
+        "after": {"user": "insighthub-user"},
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_iam_role_policy.unsafe",
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"secretsmanager:*\",\"Resource\":\"*\"}]}"
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "module.insighthub_production.aws_iam_role.workload",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRole\",\"Principal\":{\"AWS\":\"*\"}}]}",
+          "tags": {
+            "project": "insighthub",
+            "environment": "production",
+            "owner": "Nguyen Dinh Long",
+            "cost_center": "do2603-lab",
+            "managed_by": "terraform"
+          }
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_db_instance.unsafe",
+      "mode": "managed",
+      "type": "aws_db_instance",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "engine": "mysql",
+          "engine_version": "8.0",
+          "instance_class": "db.r6g.large",
+          "allocated_storage": 100,
+          "storage_type": "io1",
+          "storage_encrypted": false,
+          "multi_az": true,
+          "publicly_accessible": true,
+          "tags": {
+            "project": "insighthub"
+          }
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_elasticache_replication_group.unsafe",
+      "mode": "managed",
+      "type": "aws_elasticache_replication_group",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "engine": "memcached",
+          "engine_version": "1.6",
+          "node_type": "cache.r6g.large",
+          "num_cache_clusters": 3,
+          "at_rest_encryption_enabled": false,
+          "transit_encryption_enabled": false,
+          "transit_encryption_mode": "preferred",
+          "tags": {}
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_secretsmanager_secret.unsafe",
+      "mode": "managed",
+      "type": "aws_secretsmanager_secret",
+      "change": {
+        "actions": ["create"],
+        "after": {"tags": {}},
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "aws_vpc_security_group_ingress_rule.public_database",
+      "mode": "managed",
+      "type": "aws_vpc_security_group_ingress_rule",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "cidr_ipv4": "0.0.0.0/0",
+          "from_port": 5432,
+          "to_port": 5432,
+          "ip_protocol": "tcp",
+          "tags": {}
+        },
+        "after_unknown": {}
+      }
+    }
+  ]
+}

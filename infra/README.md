@@ -37,6 +37,23 @@ tflint --chdir=infra --recursive --config="$PWD/infra/.tflint.hcl"
 checkov -d infra/
 ```
 
+## Policy gate
+
+Generate a machine-readable Terraform plan and evaluate the project-specific
+Conftest policies:
+
+```bash
+terraform -chdir=infra plan -out=tfplan
+terraform -chdir=infra show -json tfplan > tfplan.json
+conftest test --policy infra/policies tfplan.json
+python3 -m pytest tests/milestones/day3/test_terraform_policies.py -v
+```
+
+The policies reject missing ownership tags, unencrypted or public data
+services, unrestricted security-group ingress, unsafe IAM, creation of a new
+EKS cluster, and RDS/Redis sizes outside the approved lab profile. Never commit
+the binary or JSON plan because it can contain sensitive values.
+
 Copy `terraform.tfvars.example` outside version control or pass variables via
 CI. Never commit real account IDs, subnet IDs, credentials, tokens, or plan
 files containing sensitive values.

@@ -1,0 +1,217 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.15.8",
+  "resource_changes": [
+    {
+      "address": "module.insighthub_production.aws_kms_key.this[0]",
+      "mode": "managed",
+      "type": "aws_kms_key",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "enable_key_rotation": true,
+          "tags": {
+            "project": "insighthub",
+            "environment": "production",
+            "owner": "Nguyen Dinh Long",
+            "cost_center": "do2603-lab",
+            "managed_by": "terraform"
+          }
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "module.insighthub_production.aws_db_subnet_group.this",
+      "mode": "managed",
+      "type": "aws_db_subnet_group",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "subnet_ids": ["subnet-private-a", "subnet-private-b"],
+          "tags": {
+            "project": "insighthub",
+            "environment": "production",
+            "owner": "Nguyen Dinh Long",
+            "cost_center": "do2603-lab",
+            "managed_by": "terraform"
+          }
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "module.insighthub_production.aws_db_instance.this",
+      "mode": "managed",
+      "type": "aws_db_instance",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "engine": "postgres",
+          "engine_version": "16.15",
+          "instance_class": "db.t3.small",
+          "allocated_storage": 20,
+          "storage_type": "gp3",
+          "storage_encrypted": true,
+          "kms_key_id": "arn:aws:kms:ap-southeast-1:123456789012:key/example",
+          "multi_az": false,
+          "publicly_accessible": false,
+          "db_subnet_group_name": "insighthub-production-postgres",
+          "vpc_security_group_ids": ["sg-rds"],
+          "tags": {
+            "project": "insighthub",
+            "environment": "production",
+            "owner": "Nguyen Dinh Long",
+            "cost_center": "do2603-lab",
+            "managed_by": "terraform"
+          }
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "module.insighthub_production.aws_elasticache_subnet_group.this",
+      "mode": "managed",
+      "type": "aws_elasticache_subnet_group",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "subnet_ids": ["subnet-private-a", "subnet-private-b"],
+          "tags": {
+            "project": "insighthub",
+            "environment": "production",
+            "owner": "Nguyen Dinh Long",
+            "cost_center": "do2603-lab",
+            "managed_by": "terraform"
+          }
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "module.insighthub_production.aws_elasticache_replication_group.this",
+      "mode": "managed",
+      "type": "aws_elasticache_replication_group",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "engine": "redis",
+          "engine_version": "7.1",
+          "node_type": "cache.t3.micro",
+          "num_cache_clusters": 1,
+          "at_rest_encryption_enabled": true,
+          "transit_encryption_enabled": true,
+          "transit_encryption_mode": "required",
+          "kms_key_id": "arn:aws:kms:ap-southeast-1:123456789012:key/example",
+          "subnet_group_name": "insighthub-production-redis",
+          "security_group_ids": ["sg-redis"],
+          "tags": {
+            "project": "insighthub",
+            "environment": "production",
+            "owner": "Nguyen Dinh Long",
+            "cost_center": "do2603-lab",
+            "managed_by": "terraform"
+          }
+        },
+        "after_unknown": {
+          "auth_token": true
+        }
+      }
+    },
+    {
+      "address": "module.insighthub_production.aws_vpc_security_group_ingress_rule.rds_from_workload[\"sg-workload\"]",
+      "mode": "managed",
+      "type": "aws_vpc_security_group_ingress_rule",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "from_port": 5432,
+          "to_port": 5432,
+          "ip_protocol": "tcp",
+          "referenced_security_group_id": "sg-workload",
+          "tags": {
+            "project": "insighthub",
+            "environment": "production",
+            "owner": "Nguyen Dinh Long",
+            "cost_center": "do2603-lab",
+            "managed_by": "terraform"
+          }
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "module.insighthub_production.aws_vpc_security_group_ingress_rule.redis_from_workload[\"sg-workload\"]",
+      "mode": "managed",
+      "type": "aws_vpc_security_group_ingress_rule",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "from_port": 6379,
+          "to_port": 6379,
+          "ip_protocol": "tcp",
+          "referenced_security_group_id": "sg-workload",
+          "tags": {
+            "project": "insighthub",
+            "environment": "production",
+            "owner": "Nguyen Dinh Long",
+            "cost_center": "do2603-lab",
+            "managed_by": "terraform"
+          }
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "module.insighthub_production.aws_secretsmanager_secret.redis",
+      "mode": "managed",
+      "type": "aws_secretsmanager_secret",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "kms_key_id": "arn:aws:kms:ap-southeast-1:123456789012:key/example",
+          "tags": {
+            "project": "insighthub",
+            "environment": "production",
+            "owner": "Nguyen Dinh Long",
+            "cost_center": "do2603-lab",
+            "managed_by": "terraform"
+          }
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "module.insighthub_production.aws_iam_role.workload",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"sts:AssumeRoleWithWebIdentity\",\"Condition\":{\"StringEquals\":{\"oidc.example:aud\":\"sts.amazonaws.com\",\"oidc.example:sub\":\"system:serviceaccount:insighthub:insighthub\"}}}]}",
+          "tags": {
+            "project": "insighthub",
+            "environment": "production",
+            "owner": "Nguyen Dinh Long",
+            "cost_center": "do2603-lab",
+            "managed_by": "terraform"
+          }
+        },
+        "after_unknown": {}
+      }
+    },
+    {
+      "address": "module.insighthub_production.aws_iam_role_policy.workload",
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"secretsmanager:GetSecretValue\",\"secretsmanager:DescribeSecret\"],\"Resource\":[\"arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:insighthub/rds\",\"arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:insighthub/redis\"]}]}"
+        },
+        "after_unknown": {}
+      }
+    }
+  ]
+}
+
