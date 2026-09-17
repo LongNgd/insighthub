@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "insighthub.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+data:
+  ENVIRONMENT: {{ .Values.config.environment | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  RAG_MODE: {{ .Values.config.ragMode | quote }}
+  LLM_PROVIDER: {{ .Values.config.llmProvider | quote }}
+  EMBEDDING_PROVIDER: {{ .Values.config.embeddingProvider | quote }}
+  EMBEDDING_DIM: {{ .Values.config.embeddingDim | quote }}
+  EMBEDDING_REVISION: {{ .Values.config.embeddingRevision | quote }}
+  LLM_MAX_TOKENS: {{ .Values.config.llmMaxTokens | quote }}
+  PROVIDER_TIMEOUT_SECONDS: {{ .Values.config.providerTimeoutSeconds | quote }}
+  API_INTERNAL_URL: {{ printf "http://%s-api:%v" (include "insighthub.fullname" .) .Values.services.api.port | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "insighthub.fullname" . }}-migration
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+data:
+  init.sql: |
+{{ .Files.Get "files/init.sql" | indent 4 }}

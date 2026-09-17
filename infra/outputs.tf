@@ -3,6 +3,32 @@ output "namespace" {
   value       = module.insighthub_production.namespace
 }
 
+output "vpc_id" {
+  description = "Dedicated InsightHub VPC ID."
+  value       = module.network.vpc_id
+}
+
+output "private_subnet_ids" {
+  description = "Private subnet IDs used by EKS, RDS, and Redis."
+  value       = module.network.private_subnet_ids
+}
+
+output "workload_security_group_ids" {
+  description = "EKS cluster security group allowed to reach RDS and Redis."
+  value       = [module.eks.cluster_security_group_id]
+}
+
+output "eks_cluster_name" {
+  description = "Created EKS cluster name."
+  value       = module.eks.cluster_name
+}
+
+output "eks_cluster_endpoint" {
+  description = "EKS Kubernetes API endpoint."
+  value       = module.eks.cluster_endpoint
+  sensitive   = true
+}
+
 output "service_account_name" {
   description = "IRSA-enabled Kubernetes ServiceAccount name."
   value       = module.insighthub_production.service_account_name

@@ -19,9 +19,11 @@ security, cost, or acceptance criteria require this document to be reviewed.
 
 ## 2. Objective
 
-Deploy InsightHub to the existing EKS cluster `insighthub-prod-cluster` with:
+Create the AWS foundation and deploy InsightHub with:
 
-- Kubernetes namespace `insighthub`.
+- A dedicated VPC across two Availability Zones.
+- An EKS cluster named `insighthub-prod-cluster` with private managed nodes.
+- Kubernetes namespace `insighthub-production` (`insighthub-<env>` contract).
 - Web, API, and ingestion-worker workloads.
 - Private RDS PostgreSQL 16 with the `vector` extension.
 - Private ElastiCache Redis OSS 7.
@@ -33,7 +35,7 @@ Deploy InsightHub to the existing EKS cluster `insighthub-prod-cluster` with:
 
 ### 3.1 In scope
 
-- Reusable Terraform module and production root configuration.
+- Reusable network, EKS, application-dependency modules, and production root configuration.
 - S3 Terraform backend with native lockfile support.
 - RDS, ElastiCache, subnet groups, security groups, KMS, and Secrets Manager.
 - Kubernetes namespace, ServiceAccount, IRSA role, and database bootstrap data.
@@ -43,8 +45,8 @@ Deploy InsightHub to the existing EKS cluster `insighthub-prod-cluster` with:
 
 ### 3.2 Out of scope
 
-- Creating or replacing an EKS cluster or node group.
-- Reconfiguring the existing VPC, route tables, NAT, or EKS control plane.
+- Connecting this lab VPC to unrelated VPCs or on-premises networks.
+- Managing organization-wide DNS, IAM Identity Center, or shared networking.
 - Creating IAM users or long-lived AWS access keys.
 - Running PostgreSQL or Redis as StatefulSets in EKS.
 - Changing the InsightHub HTTP contract or embedding identity.
@@ -56,11 +58,9 @@ The following must exist before a real plan or apply:
 
 | Dependency | Required state |
 |---|---|
-| EKS cluster | Existing and reachable |
-| EKS IAM OIDC provider | Associated with the cluster |
-| VPC | Same network used by EKS workloads |
-| Private subnets | At least two different Availability Zones |
-| Workload security groups | Attached to the pods/nodes that need DB/cache access |
+| AWS account | Enough quota and permission to create VPC, NAT, EKS, EC2, IAM, KMS, RDS, Redis, and logs |
+| EKS API access | Restricted operator/CI IPv4 CIDRs; never `0.0.0.0/0` |
+| Availability Zones | At least two standard AZs in the selected region |
 | Terraform state bucket | Versioned, encrypted, access restricted |
 | Container registry | Immutable image tags or digests |
 | DNS/TLS | Approved DNS name and certificate |
@@ -75,6 +75,8 @@ before plan, apply, and destroy.
 
 ```text
 Internet
+  -> Internet Gateway -> public subnets -> NAT Gateway
+  -> restricted EKS public API endpoint
   -> HTTPS Ingress / AWS load balancer
       -> web Service -> web Deployment
       -> api Service -> api Deployment
@@ -84,7 +86,12 @@ Internet
                          |-> private ElastiCache Redis 7
                          `-> private RDS PostgreSQL 16 + pgvector
 
-EKS namespace: insighthub
+Dedicated VPC
+  - two public subnets
+  - two private subnets for EKS nodes, RDS, and Redis
+
+EKS cluster: insighthub-prod-cluster
+EKS namespace: insighthub-production
   - ServiceAccount: insighthub (IRSA)
   - migration Job runs before API and worker rollout
 
@@ -126,7 +133,9 @@ infra/
   main.tf                            # calls reusable module
   variables.tf / outputs.tf
   terraform.tfvars.example
-  modules/insighthub-production/     # reusable child module
+  modules/network/                   # reusable VPC and subnet module
+  modules/eks/                       # reusable EKS and node module
+  modules/insighthub-production/     # reusable application dependencies
 ```
 
 ### 7.2 Provider and runtime constraints
@@ -135,6 +144,7 @@ infra/
 - AWS provider: `~> 6.64`.
 - Kubernetes provider: `~> 3.2`.
 - Random provider: `~> 3.9`.
+- TLS provider: `~> 4.1`.
 - Provider selections are committed in `.terraform.lock.hcl`.
 
 ### 7.3 Required inputs
@@ -142,15 +152,16 @@ infra/
 | Input | Constraint |
 |---|---|
 | `eks_cluster_name` | Must be `insighthub-prod-cluster` in the production root |
-| `vpc_id` | Existing VPC; never inferred from a guessed name |
-| `private_subnet_ids` | At least two private subnets |
-| `workload_security_group_ids` | At least one explicit SG; CIDR replacement is forbidden |
+| `vpc_cidr` | Dedicated non-overlapping VPC CIDR |
+| `eks_public_access_cidrs` | Restricted operator/CI CIDRs; `0.0.0.0/0` forbidden |
+| `kubernetes_version` | Supported EKS Kubernetes version |
+| `eks_node_instance_types` | Approved managed-node instance types |
 | `owner` | Non-empty required tag |
 | `cost_center` | Non-empty required tag |
 
 ### 7.4 Invariants
 
-- No `aws_eks_cluster`, EKS node group, IAM user, or access key resource.
+- No IAM user or access key resource.
 - No plaintext secret input, output, log, committed tfvars, or Helm value.
 - No ingress or egress rule using `0.0.0.0/0`.
 - No public RDS or Redis endpoint.
@@ -232,7 +243,7 @@ failed migration blocks rollout; it must not fall back to another database.
 The trust policy is restricted to:
 
 ```text
-system:serviceaccount:insighthub:insighthub
+system:serviceaccount:insighthub-production:insighthub
 ```
 
 It also validates the `sts.amazonaws.com` audience. The workload role may only:
@@ -259,14 +270,16 @@ at rest by the cluster, and must never be committed or printed by CI.
 
 ## 12. Network security
 
-- RDS and Redis use only approved private subnet IDs.
+- EKS nodes, RDS, and Redis use only the module-created private subnets.
+- The EKS API always has private access; optional public access is CIDR-restricted.
 - Access is security-group-to-security-group, not CIDR-wide.
 - RDS permits only TCP 5432 from approved workload SGs.
 - Redis permits only TCP 6379 from approved workload SGs.
 - Data-service security groups have no unrestricted egress rule.
 - Redis clients must use TLS.
 - PostgreSQL clients must require SSL.
-- This module does not broaden EKS API endpoint access.
+- Public EKS API access is disabled by default and, when enabled, accepts only
+  explicitly configured operator/CI CIDRs.
 
 ## 13. Helm deployment contract
 
@@ -346,7 +359,7 @@ Conftest must reject:
 - Unencrypted RDS/Redis/storage.
 - Public RDS/Redis or public CIDR security-group rules.
 - IAM users, access keys, wildcard IAM actions/resources where restrictable.
-- Creation of an EKS cluster.
+- EKS clusters without secret encryption, control-plane logging, or private API access.
 - RDS/Redis sizes outside the approved lab profile without explicit approval.
 
 Every policy exception requires policy ID, rationale, owner, expiry, and
@@ -359,6 +372,7 @@ production remediation. Current lab exceptions are:
 | `CKV2_AWS_50` | Single Redis node required by lab cost constraint | Add replica/failover before persistent production |
 | `CKV2_AWS_57` | Lab token is destroyed after the run | Implement coordinated Redis/client rotation |
 | `CKV2_AWS_64` | Lab may use default account key policy | Supply organization-managed KMS key/policy |
+| `CKV_AWS_158` | VPC Flow Logs use CloudWatch service-side encryption in the lab | Use an organization-managed logging KMS key for persistent production |
 
 ## 16. Acceptance criteria
 
@@ -381,7 +395,7 @@ production remediation. Current lab exceptions are:
 | AC-A1 | Correct AWS identity | `aws sts get-caller-identity` | Approved lab account/role |
 | AC-A2 | S3 state and locking | `terraform init` logs/backend config | Success with `use_lockfile` |
 | AC-A3 | Reviewed deterministic plan | Saved plan and repeated no-change plan | No unexpected destroy/drift |
-| AC-A4 | No EKS cluster creation | Plan/resource inventory | Existing cluster only |
+| AC-A4 | Dedicated EKS foundation | Plan/resource inventory | VPC, EKS cluster, and private node group created |
 | AC-A5 | Private encrypted RDS 16 | Plan and AWS describe output | PostgreSQL 16, encrypted, not public, single-AZ |
 | AC-A6 | Private encrypted Redis 7 | Plan and AWS describe output | Redis 7, at-rest/transit encryption, one node |
 | AC-A7 | Required tags | AWS tag inventory | All five tags present |
@@ -392,11 +406,11 @@ production remediation. Current lab exceptions are:
 
 | ID | Requirement | Command/evidence | Expected |
 |---|---|---|---|
-| AC-K1 | Namespace | `kubectl get ns insighthub` | Active |
-| AC-K2 | IRSA ServiceAccount | `kubectl describe sa insighthub -n insighthub` | Correct role annotation |
-| AC-K3 | Migration | `kubectl get job -n insighthub` and logs | Complete, no secret output |
+| AC-K1 | Namespace | `kubectl get ns insighthub-production` | Active |
+| AC-K2 | IRSA ServiceAccount | `kubectl describe sa insighthub -n insighthub-production` | Correct role annotation |
+| AC-K3 | Migration | `kubectl get job -n insighthub-production` and logs | Complete, no secret output |
 | AC-K4 | pgvector | SQL extension query | `vector` installed |
-| AC-K5 | Workloads | `kubectl get pods -n insighthub` | Web/API/worker Ready |
+| AC-K5 | Workloads | `kubectl get pods -n insighthub-production` | Web/API/worker Ready |
 | AC-K6 | HTTPS health | `curl https://<approved-host>/healthz` | HTTP 200 |
 
 ### 16.4 Application smoke

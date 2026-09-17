@@ -1,0 +1,23 @@
+images:
+  web:
+    repository: 123456789012.dkr.ecr.ap-southeast-1.amazonaws.com/insighthub-web
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  api:
+    repository: 123456789012.dkr.ecr.ap-southeast-1.amazonaws.com/insighthub-api
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  worker:
+    repository: 123456789012.dkr.ecr.ap-southeast-1.amazonaws.com/insighthub-worker
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+
+secretsStore:
+  region: ap-southeast-1
+  rdsSecretArn: arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:REPLACE_RDS_SECRET
+  redisSecretArn: arn:aws:secretsmanager:ap-southeast-1:123456789012:secret:REPLACE_REDIS_SECRET
+
+ingress:
+  enabled: true
+  host: insighthub.example.com
+  certificateArn: arn:aws:acm:ap-southeast-1:123456789012:certificate:REPLACE_CERTIFICATE_ID
+  externalDnsHostname: insighthub.example.com
+  inboundCidrs:
+    - 203.0.113.10/32

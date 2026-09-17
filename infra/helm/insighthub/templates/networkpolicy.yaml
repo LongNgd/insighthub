@@ -1,0 +1,81 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "insighthub.fullname" . }}-web
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "insighthub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.vpcCidr | quote }}
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "insighthub.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "insighthub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.vpcCidr | quote }}
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "insighthub.fullname" . }}-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ingestion-worker
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "insighthub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ingestion-worker
+  policyTypes:
+    - Ingress
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "insighthub.fullname" . }}-migration
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "insighthub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: migration
+  policyTypes:
+    - Ingress
+  ingress: []
+{{- end }}

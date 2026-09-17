@@ -50,6 +50,7 @@ deny contains msg if {
 	resource := input.resource_changes[_]
 	active_managed_resource(resource)
 	resource.type in {"aws_db_subnet_group", "aws_elasticache_subnet_group"}
+	not attribute_unknown(resource, "subnet_ids")
 	count(object.get(after(resource), "subnet_ids", [])) < 2
 	msg := sprintf("IH-NET-001 %s must contain at least two private subnets", [resource.address])
 }
@@ -87,4 +88,3 @@ deny contains msg if {
 	not attribute_present_or_unknown(resource, "referenced_security_group_id")
 	msg := sprintf("IH-NET-001 %s must allow data-service access by referenced security group only", [resource.address])
 }
-

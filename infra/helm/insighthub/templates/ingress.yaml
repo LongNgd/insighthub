@@ -1,0 +1,66 @@
+{{- if .Values.ingress.enabled }}
+{{- $host := required "ingress.host is required when ingress.enabled=true" .Values.ingress.host }}
+{{- $certificateArn := required "ingress.certificateArn is required when ingress.enabled=true" .Values.ingress.certificateArn }}
+{{- $inboundCidrs := required "ingress.inboundCidrs must contain approved CIDRs when ingress.enabled=true" .Values.ingress.inboundCidrs }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "insighthub.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+  annotations:
+    alb.ingress.kubernetes.io/scheme: {{ .Values.ingress.scheme | quote }}
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: {{ $certificateArn | quote }}
+    alb.ingress.kubernetes.io/inbound-cidrs: {{ join "," $inboundCidrs | quote }}
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.groupName | quote }}
+    alb.ingress.kubernetes.io/load-balancer-attributes: routing.http.drop_invalid_header_fields.enabled=true
+    {{- if .Values.ingress.externalDnsHostname }}
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.ingress.externalDnsHostname | quote }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ $host | quote }}
+      http:
+        paths:
+          - path: /documents
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "insighthub.fullname" . }}-api
+                port:
+                  number: {{ .Values.services.api.port }}
+          - path: /chat
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "insighthub.fullname" . }}-api
+                port:
+                  number: {{ .Values.services.api.port }}
+          - path: /healthz
+            pathType: Exact
+            backend:
+              service:
+                name: {{ include "insighthub.fullname" . }}-api
+                port:
+                  number: {{ .Values.services.api.port }}
+          - path: /readyz
+            pathType: Exact
+            backend:
+              service:
+                name: {{ include "insighthub.fullname" . }}-api
+                port:
+                  number: {{ .Values.services.api.port }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "insighthub.fullname" . }}-web
+                port:
+                  number: {{ .Values.services.web.port }}
+{{- end }}

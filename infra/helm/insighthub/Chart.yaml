@@ -1,0 +1,7 @@
+apiVersion: v2
+name: insighthub
+description: InsightHub web, API, ingestion worker, migration, and AWS secret integration
+type: application
+version: 0.1.0
+appVersion: "0.3.0"
+kubeVersion: ">=1.30.0-0"

@@ -1,28 +1,52 @@
 # InsightHub Day 3 infrastructure
 
-`infra/` is the production root module. It calls the reusable module at
-`modules/insighthub-production/`; there is deliberately no `examples/` tree.
+`infra/` is the production root module. It composes reusable network, EKS, and
+InsightHub dependency modules; there is deliberately no `examples/` tree.
 
-The configuration targets the existing EKS cluster
-`insighthub-prod-cluster`. It creates the `insighthub` namespace and private
-RDS/ElastiCache dependencies. It never creates an EKS cluster.
+The configuration creates a dedicated VPC, EKS cluster
+`insighthub-prod-cluster`, private managed nodes, the
+`insighthub-production` namespace, and private RDS/ElastiCache dependencies.
+The VPC spans two Availability Zones with public subnets for one lab-sized NAT
+Gateway and private subnets for EKS nodes, RDS, and Redis.
 
 ## Prerequisites
 
 - Terraform 1.11 or newer.
 - AWS identity scoped to the lab account/region.
-- Existing EKS cluster, IAM OIDC provider, VPC, and private subnets.
-- Explicit EKS workload security group IDs.
-- Existing S3 state bucket with versioning and encryption enabled.
+- AWS permissions and service quotas for VPC, NAT Gateway, EKS, EC2, IAM, KMS,
+  RDS, ElastiCache, Secrets Manager, and CloudWatch Logs.
+- A restricted operator/CI egress CIDR for EKS API access. Keep
+  `eks_public_access_cidrs` empty only when Terraform runs from inside the VPC.
+- Permission to run the one-time `infra/bootstrap/` state-bucket stack.
 - Network access to the EKS Kubernetes API for namespace/ServiceAccount plans.
 
-## Initialize
+## Bootstrap the state bucket
+
+The backend bucket must exist before the production root can initialize. Create
+it once with the independent local-state bootstrap stack:
+
+```bash
+terraform -chdir=infra/bootstrap init -backend=false
+terraform -chdir=infra/bootstrap plan -out=bootstrap.tfplan
+terraform -chdir=infra/bootstrap apply bootstrap.tfplan
+
+terraform -chdir=infra/bootstrap init -migrate-state -force-copy \
+  -backend-config="bucket=do2603-ndlong-tfstate-154931139523-ap-southeast-1" \
+  -backend-config="key=insighthub/bootstrap/terraform.tfstate" \
+  -backend-config="region=ap-southeast-1"
+```
+
+Do not commit the temporary local state or saved plan. The state bucket is
+protected from Terraform destroy and is intentionally not part of the reusable
+module. Bootstrap and production use separate state keys.
+
+## Initialize the production root
 
 Backend values are intentionally partial and environment-specific:
 
 ```bash
 terraform -chdir=infra init \
-  -backend-config="bucket=<state-bucket>" \
+  -backend-config="bucket=<bootstrap-bucket-output>" \
   -backend-config="key=insighthub/production/terraform.tfstate" \
   -backend-config="region=ap-southeast-1"
 ```
@@ -50,13 +74,13 @@ python3 -m pytest tests/milestones/day3/test_terraform_policies.py -v
 ```
 
 The policies reject missing ownership tags, unencrypted or public data
-services, unrestricted security-group ingress, unsafe IAM, creation of a new
-EKS cluster, and RDS/Redis sizes outside the approved lab profile. Never commit
-the binary or JSON plan because it can contain sensitive values.
+services, unrestricted security-group ingress, unsafe IAM, unsafe EKS API or
+secret settings, and RDS/Redis sizes outside the approved lab profile. Never
+commit the binary or JSON plan because it can contain sensitive values.
 
 Copy `terraform.tfvars.example` outside version control or pass variables via
-CI. Never commit real account IDs, subnet IDs, credentials, tokens, or plan
-files containing sensitive values.
+CI. Never commit credentials, tokens, or plan files containing sensitive
+values. Replace the documentation-only EKS API CIDR before planning.
 
 ## Plan and review
 
@@ -77,9 +101,12 @@ an RDS provisioning property. The module creates a ConfigMap containing:
 CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
-The Helm/database migration job must execute this statement using credentials
-retrieved from the RDS-managed Secrets Manager secret before the API and worker
-start. The complete application schema remains in `db/init.sql`.
+The Helm migration Job executes this statement and the complete schema copied
+from `infra/db/init.sql`, using credentials retrieved from the RDS-managed
+Secrets Manager secret before the API and worker start. The namespace-scoped
+chart is in `infra/helm/insighthub`; its README documents validation and deploy
+commands. The cluster-wide Secrets Store CSI Driver, AWS provider, AWS Load
+Balancer Controller, and Metrics Server remain separately managed add-ons.
 
 ## Lab cleanup
 

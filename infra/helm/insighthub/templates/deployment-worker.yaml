@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "insighthub.fullname" . }}-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ingestion-worker
+spec:
+  replicas: {{ .Values.replicaCount.worker }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "insighthub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ingestion-worker
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret-provider: {{ include (print $.Template.BasePath "/secretproviderclass.yaml") . | sha256sum }}
+      labels:
+        {{- include "insighthub.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ingestion-worker
+    spec:
+      serviceAccountName: {{ include "insighthub.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        {{- include "insighthub.secretRenderer" . | nindent 8 }}
+        - name: wait-for-schema
+          image: {{ include "insighthub.image" .Values.images.migration | quote }}
+          imagePullPolicy: {{ .Values.images.migration.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              . /runtime/secrets.env
+              elapsed=0
+              until [ "$(psql -X -qAt -c "SELECT to_regclass('public.documents') IS NOT NULL")" = "t" ]; do
+                if [ "$elapsed" -ge {{ .Values.migration.waitTimeoutSeconds }} ]; then
+                  echo "database schema was not ready before timeout" >&2
+                  exit 1
+                fi
+                sleep 5
+                elapsed=$((elapsed + 5))
+              done
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources.migration | nindent 12 }}
+          volumeMounts:
+            - name: runtime-secrets
+              mountPath: /runtime
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: ingestion-worker
+          image: {{ include "insighthub.image" .Values.images.worker | quote }}
+          imagePullPolicy: {{ .Values.images.worker.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - . /runtime/secrets.env; exec arq worker.WorkerSettings
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "insighthub.fullname" . }}-config
+          startupProbe:
+            exec:
+              command: ["/bin/sh", "-ec", "kill -0 1"]
+            failureThreshold: 12
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-ec", "kill -0 1"]
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-ec", "kill -0 1"]
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources.worker | nindent 12 }}
+          volumeMounts:
+            - name: runtime-secrets
+              mountPath: /runtime
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        {{- include "insighthub.secretVolumes" . | nindent 8 }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,141 @@
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: false
+  name: insighthub
+  annotations: {}
+
+images:
+  web:
+    repository: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+  api:
+    repository: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+  worker:
+    repository: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+  secretRenderer:
+    repository: python
+    digest: sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea
+    pullPolicy: IfNotPresent
+  migration:
+    repository: pgvector/pgvector
+    digest: sha256:00ba258a66dac104fd5171074a0084462a64a1369d8513f3d0a634e2f24d15bc
+    pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+replicaCount:
+  web: 2
+  api: 2
+  worker: 1
+
+config:
+  environment: production
+  logLevel: INFO
+  ragMode: fixture
+  llmProvider: fixture
+  embeddingProvider: fixture
+  embeddingDim: "1024"
+  embeddingRevision: "1"
+  llmMaxTokens: "1024"
+  providerTimeoutSeconds: "60"
+
+secretsStore:
+  region: ap-southeast-1
+  rdsSecretArn: ""
+  redisSecretArn: ""
+
+services:
+  web:
+    port: 80
+  api:
+    port: 8000
+
+resources:
+  web:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  api:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  worker:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  migration:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  secretRenderer:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+autoscaling:
+  api:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+ingress:
+  enabled: false
+  className: alb
+  host: ""
+  certificateArn: ""
+  scheme: internet-facing
+  groupName: insighthub-production
+  externalDnsHostname: ""
+  inboundCidrs: []
+
+networkPolicy:
+  enabled: true
+  vpcCidr: 10.42.0.0/16
+
+migration:
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+  waitTimeoutSeconds: 600
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

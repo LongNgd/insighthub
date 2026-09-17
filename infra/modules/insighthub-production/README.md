@@ -26,7 +26,7 @@ private database or run `local-exec`.
 | `cluster_oidc_provider_arn` | Existing IAM OIDC provider ARN. |
 | `vpc_id` | VPC shared with EKS. |
 | `private_subnet_ids` | At least two private subnets. |
-| `workload_security_group_ids` | EKS workload SGs allowed to connect. |
+| `workload_security_groups` | Named map of EKS workload SGs allowed to connect. |
 | `tags` | `project`, `environment`, `owner`, `cost_center`. |
 
 See `variables.tf` for documented optional inputs and lab-sized defaults.

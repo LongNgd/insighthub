@@ -1,0 +1,10 @@
+InsightHub release {{ .Release.Name }} has been rendered for namespace {{ .Release.Namespace }}.
+
+The application requires these cluster-level components:
+- Secrets Store CSI Driver with the AWS provider
+- AWS Load Balancer Controller when ingress.enabled=true
+- Metrics Server when autoscaling.api.enabled=true
+
+Check the migration and rollout:
+  kubectl get jobs,pods -n {{ .Release.Namespace }}
+  kubectl logs -n {{ .Release.Namespace }} job/{{ include "insighthub.fullname" . }}-migration-{{ .Files.Get "files/init.sql" | sha256sum | trunc 8 }} -c migrate

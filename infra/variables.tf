@@ -1,5 +1,5 @@
 variable "aws_region" {
-  description = "AWS region containing the existing EKS cluster and private data services."
+  description = "AWS region where the complete InsightHub stack is created."
   type        = string
   default     = "ap-southeast-1"
 }
@@ -11,39 +11,45 @@ variable "aws_profile" {
 }
 
 variable "eks_cluster_name" {
-  description = "Name of the existing EKS cluster. This configuration never creates a cluster."
+  description = "Name of the EKS cluster created for InsightHub."
   type        = string
   default     = "insighthub-prod-cluster"
-
-  validation {
-    condition     = var.eks_cluster_name == "insighthub-prod-cluster"
-    error_message = "This production root is bound to the existing insighthub-prod-cluster cluster."
-  }
 }
 
-variable "vpc_id" {
-  description = "VPC ID shared by the existing EKS cluster, RDS, and ElastiCache."
+variable "vpc_cidr" {
+  description = "CIDR block for the dedicated InsightHub VPC."
   type        = string
-}
-
-variable "private_subnet_ids" {
-  description = "Private subnet IDs in at least two Availability Zones."
-  type        = set(string)
+  default     = "10.42.0.0/16"
 
   validation {
-    condition     = length(var.private_subnet_ids) >= 2
-    error_message = "At least two private subnet IDs are required for the RDS subnet group."
+    condition     = can(cidrnetmask(var.vpc_cidr))
+    error_message = "vpc_cidr must be a valid IPv4 CIDR block."
   }
 }
 
-variable "workload_security_group_ids" {
-  description = "Security group IDs attached to EKS workloads allowed to reach PostgreSQL and Redis."
-  type        = set(string)
+variable "eks_public_access_cidrs" {
+  description = "Approved operator/CI IPv4 CIDRs allowed to reach the public EKS API. Empty disables the public endpoint. Never use 0.0.0.0/0."
+  type        = list(string)
+  default     = []
 
   validation {
-    condition     = length(var.workload_security_group_ids) > 0
-    error_message = "At least one workload security group ID is required; CIDR-wide access is intentionally unsupported."
+    condition = alltrue([
+      for cidr in var.eks_public_access_cidrs : can(cidrnetmask(cidr)) && cidr != "0.0.0.0/0"
+    ])
+    error_message = "eks_public_access_cidrs must contain valid restricted IPv4 CIDRs and must not contain 0.0.0.0/0."
   }
+}
+
+variable "kubernetes_version" {
+  description = "EKS Kubernetes version approved for the lab."
+  type        = string
+  default     = "1.33"
+}
+
+variable "eks_node_instance_types" {
+  description = "Instance types for the private EKS managed node group."
+  type        = list(string)
+  default     = ["t3.medium"]
 }
 
 variable "project" {
@@ -61,6 +67,7 @@ variable "environment" {
 variable "owner" {
   description = "Required owner tag, for example a team name or student identifier."
   type        = string
+  default     = "Nguyen Dinh Long"
 
   validation {
     condition     = trimspace(var.owner) != ""
@@ -71,6 +78,7 @@ variable "owner" {
 variable "cost_center" {
   description = "Required cost-center tag."
   type        = string
+  default     = "do2603-lab"
 
   validation {
     condition     = trimspace(var.cost_center) != ""

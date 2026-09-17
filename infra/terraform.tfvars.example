@@ -1,18 +1,18 @@
 aws_region       = "ap-southeast-1"
 eks_cluster_name = "insighthub-prod-cluster"
-vpc_id           = "vpc-0123456789abcdef0"
-private_subnet_ids = [
-  "subnet-0123456789abcdef0",
-  "subnet-0123456789abcdef1",
-]
-workload_security_group_ids = [
-  "sg-0123456789abcdef0",
-]
+vpc_cidr         = "10.42.0.0/16"
 
 project     = "insighthub"
 environment = "production"
-owner       = "replace-me"
-cost_center = "replace-me"
+owner       = "Nguyen Dinh Long"
+cost_center = "do2603-lab"
+
+# Replace with the current operator/CI egress address. Empty means the EKS API
+# is private-only. Never use 0.0.0.0/0.
+eks_public_access_cidrs = ["203.0.113.10/32"]
+
+kubernetes_version      = "1.33"
+eks_node_instance_types = ["t3.medium"]
 
 # Lab defaults allow teardown without a retained snapshot. For long-lived
 # production data, enable deletion protection and retain a final snapshot.

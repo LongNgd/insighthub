@@ -13,20 +13,22 @@ provider "aws" {
   }
 }
 
-data "aws_eks_cluster" "this" {
-  name = var.eks_cluster_name
+data "aws_availability_zones" "available" {
+  state = "available"
+
+  filter {
+    name   = "opt-in-status"
+    values = ["opt-in-not-required"]
+  }
 }
 
 data "aws_eks_cluster_auth" "this" {
-  name = var.eks_cluster_name
-}
-
-data "aws_iam_openid_connect_provider" "this" {
-  url = data.aws_eks_cluster.this.identity[0].oidc[0].issuer
+  name       = module.eks.cluster_name
+  depends_on = [module.eks]
 }
 
 provider "kubernetes" {
-  host                   = data.aws_eks_cluster.this.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.this.certificate_authority[0].data)
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
   token                  = data.aws_eks_cluster_auth.this.token
 }

@@ -5,5 +5,6 @@ terraform {
   }
 }
 
-# Supply bucket, key, and region at init time. Backend arguments cannot use
-# Terraform input variables. See README.md for the exact command.
+# Create the bucket first with infra/bootstrap, then supply its bucket, key,
+# and region outputs at init time. Backend arguments cannot use Terraform input
+# variables. See README.md for the exact two-phase commands.

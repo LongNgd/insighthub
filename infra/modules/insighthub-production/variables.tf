@@ -45,12 +45,12 @@ variable "private_subnet_ids" {
   }
 }
 
-variable "workload_security_group_ids" {
-  description = "EKS workload security groups permitted to reach RDS and Redis."
-  type        = set(string)
+variable "workload_security_groups" {
+  description = "Named EKS workload security groups permitted to reach RDS and Redis. Static map keys allow SG IDs created in the same plan."
+  type        = map(string)
 
   validation {
-    condition     = length(var.workload_security_group_ids) > 0
+    condition     = length(var.workload_security_groups) > 0
     error_message = "At least one workload security group ID is required."
   }
 }

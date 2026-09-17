@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "insighthub.fullname" . }}-web
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.services.web.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "insighthub.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "insighthub.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.services.api.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "insighthub.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api
