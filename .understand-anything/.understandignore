@@ -8,28 +8,37 @@
 #
 # --- From .gitignore (uncomment to exclude) ---
 
-# .env
-# .env.local
-# *.pem
-# *.key
-# *.py[cod]
-# *.egg-info/
-# .pytest_cache/
-# .ruff_cache/
-# npm-debug.log*
-# yarn-error.log*
-# .terraform/
-# *.tfstate
-# *.tfstate.*
-# *.tfvars
-# !*.tfvars.example
-# .DS_Store
-# Thumbs.db
-# tmp/
-# *.tmp
-# evidence/
-# reports/
-# *.tsbuildinfo
+.env
+.env.local
+*.pem
+*.key
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-error.log*
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+tmp/
+*.tmp
+evidence/
+reports/
+*.tsbuildinfo
 
 # --- Detected directories (uncomment to exclude) ---
 
