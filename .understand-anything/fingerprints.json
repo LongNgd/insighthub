@@ -1,0 +1,4195 @@
+{
+  "version": "1.0.0",
+  "gitCommitHash": "0d5b838776a5f1af01d737674d8fc85724c3c60f",
+  "generatedAt": "2026-09-18T08:31:26.725Z",
+  "files": {
+    ".env.example": {
+      "filePath": ".env.example",
+      "contentHash": "2896db6f4107e91258d387e8f99f81093a7c752f6046f2150e0218b4fb727efa",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 35,
+      "hasStructuralAnalysis": true
+    },
+    ".github/workflows/starter.yml": {
+      "filePath": ".github/workflows/starter.yml",
+      "contentHash": "59aadc8fd9b356529b8176347d1df0c247e0393cdbbd282e639e72e2f9460e08",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 39,
+      "hasStructuralAnalysis": true
+    },
+    ".mcp.json.template": {
+      "filePath": ".mcp.json.template",
+      "contentHash": "ca9f22a7bd671410aafad120d49a9a0207e340858631affa583497e8c519f366",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 17,
+      "hasStructuralAnalysis": false
+    },
+    "AGENTS.md": {
+      "filePath": "AGENTS.md",
+      "contentHash": "b16110209ca47617917b75c1c5021ae4cf614a2fd935bf4642b150c43819f8c6",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 39,
+      "hasStructuralAnalysis": true
+    },
+    "CLAUDE.md": {
+      "filePath": "CLAUDE.md",
+      "contentHash": "fc06c95103f4cbc531dba6bf71f319bd8ef48046989636ab1aed272e5588d720",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "GETTING_STARTED.md": {
+      "filePath": "GETTING_STARTED.md",
+      "contentHash": "46bf9904ac52472627fc1496a90a1417905b112dcdb91307f3d3cc0a88550f1e",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 106,
+      "hasStructuralAnalysis": true
+    },
+    "Makefile": {
+      "filePath": "Makefile",
+      "contentHash": "a4f1686d28d6f91b0df0646c04a6888b762d6fb8c0adc987f543aedd4571bfb3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 32,
+      "hasStructuralAnalysis": true
+    },
+    "README.md": {
+      "filePath": "README.md",
+      "contentHash": "ecd47fc4437b3aa99a4c772b97baf506202badd9ddc99299cf8a1debb7d92c96",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 207,
+      "hasStructuralAnalysis": true
+    },
+    "Running-Project-Specification-Student.md": {
+      "filePath": "Running-Project-Specification-Student.md",
+      "contentHash": "5dd3b610491189833ad5bb3a58fc74c5ff80a58f2b1fc780b9deb22ba9a4000a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1772,
+      "hasStructuralAnalysis": true
+    },
+    "api/.dockerignore": {
+      "filePath": "api/.dockerignore",
+      "contentHash": "6b67ac26c6838ba71f59c2f15d6a226e41558541db13a79c5b07ee7bc0baf712",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 9,
+      "hasStructuralAnalysis": false
+    },
+    "api/Dockerfile": {
+      "filePath": "api/Dockerfile",
+      "contentHash": "75270d660170617bddbce3d93eaefa2d7b21b254b666bfbba19753eef63fedd0",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 24,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/__init__.py": {
+      "filePath": "api/app/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/core/__init__.py": {
+      "filePath": "api/app/core/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/core/config.py": {
+      "filePath": "api/app/core/config.py",
+      "contentHash": "a9e13fa40843eb8c8d11e4e31d8a423f44e0b065be30daa48ccc698782182bab",
+      "functions": [
+        {
+          "name": "get_settings",
+          "params": [],
+          "returnType": "Settings",
+          "exported": true,
+          "lineCount": 2
+        }
+      ],
+      "classes": [
+        {
+          "name": "Settings",
+          "methods": [
+            "validate_configuration",
+            "resolved_chat_model",
+            "resolved_embedding_model",
+            "embedding_identity",
+            "embedding_identity_id"
+          ],
+          "properties": [
+            "app_name",
+            "environment",
+            "log_level",
+            "database_url",
+            "rag_mode",
+            "llm_provider",
+            "embedding_provider",
+            "gemini_api_key",
+            "gemini_chat_model",
+            "gemini_embedding_model",
+            "anthropic_api_key",
+            "anthropic_chat_model",
+            "voyage_api_key",
+            "voyage_embedding_model",
+            "openai_api_key",
+            "openai_base_url",
+            "openai_chat_model",
+            "openai_embedding_model",
+            "ollama_base_url",
+            "ollama_chat_model",
+            "ollama_embedding_model",
+            "llm_model",
+            "embedding_model",
+            "llm_max_tokens",
+            "embedding_dim",
+            "embedding_revision",
+            "provider_timeout_seconds",
+            "embedding_batch_size",
+            "chunk_size",
+            "chunk_overlap",
+            "retrieval_top_k",
+            "hnsw_ef_search",
+            "max_upload_bytes"
+          ],
+          "exported": true,
+          "lineCount": 147
+        }
+      ],
+      "imports": [
+        {
+          "source": "hashlib",
+          "specifiers": [
+            "hashlib"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "functools",
+          "specifiers": [
+            "lru_cache"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Literal"
+          ]
+        },
+        {
+          "source": "urllib.parse",
+          "specifiers": [
+            "urlsplit"
+          ]
+        },
+        {
+          "source": "pydantic",
+          "specifiers": [
+            "Field",
+            "model_validator"
+          ]
+        },
+        {
+          "source": "pydantic_settings",
+          "specifiers": [
+            "BaseSettings",
+            "SettingsConfigDict"
+          ]
+        }
+      ],
+      "exports": [
+        "Settings",
+        "get_settings"
+      ],
+      "totalLines": 165,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/core/db.py": {
+      "filePath": "api/app/core/db.py",
+      "contentHash": "ec199c06c2997d87cebe3096e8bdfefb38e6d9f82794ab491cc55de276dfa02c",
+      "functions": [
+        {
+          "name": "_configure",
+          "params": [
+            "conn"
+          ],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "get_pool",
+          "params": [],
+          "returnType": "ConnectionPool",
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "get_conn",
+          "params": [],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "initialize_database",
+          "params": [],
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "healthcheck",
+          "params": [],
+          "returnType": "bool",
+          "exported": true,
+          "lineCount": 11
+        },
+        {
+          "name": "close_pool",
+          "params": [],
+          "exported": true,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "logging",
+          "specifiers": [
+            "logging"
+          ]
+        },
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        },
+        {
+          "source": "contextlib",
+          "specifiers": [
+            "contextmanager"
+          ]
+        },
+        {
+          "source": "psycopg_pool",
+          "specifiers": [
+            "ConnectionPool"
+          ]
+        },
+        {
+          "source": "pgvector.psycopg",
+          "specifiers": [
+            "register_vector"
+          ]
+        },
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        }
+      ],
+      "exports": [
+        "_configure",
+        "get_pool",
+        "get_conn",
+        "initialize_database",
+        "healthcheck",
+        "close_pool"
+      ],
+      "totalLines": 71,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/core/errors.py": {
+      "filePath": "api/app/core/errors.py",
+      "contentHash": "f296c69daca9970379a9e72331f00806c0e0084d988c5e7c1520aaacc8c430f7",
+      "functions": [],
+      "classes": [
+        {
+          "name": "ServiceError",
+          "methods": [
+            "__init__"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "ProviderError",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "InvalidDocument",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "DocumentNotFound",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "DocumentConflict",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "IndexIdentityConflict",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "SchemaMismatch",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 4
+        }
+      ],
+      "imports": [],
+      "exports": [
+        "ServiceError",
+        "ProviderError",
+        "InvalidDocument",
+        "DocumentNotFound",
+        "DocumentConflict",
+        "IndexIdentityConflict",
+        "SchemaMismatch"
+      ],
+      "totalLines": 49,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/core/index.py": {
+      "filePath": "api/app/core/index.py",
+      "contentHash": "14c51890b1b20ab3d69617f95129f2e3f758f5fdee5d9a2f4581d4f0d8aa4d9f",
+      "functions": [
+        {
+          "name": "check_schema",
+          "params": [
+            "conn"
+          ],
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "ensure_index_identity",
+          "params": [
+            "conn",
+            "claim"
+          ],
+          "exported": true,
+          "lineCount": 25
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "psycopg",
+          "specifiers": [
+            "Error"
+          ]
+        },
+        {
+          "source": "psycopg.types.json",
+          "specifiers": [
+            "Jsonb"
+          ]
+        },
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        },
+        {
+          "source": "app.core.errors",
+          "specifiers": [
+            "IndexIdentityConflict",
+            "SchemaMismatch"
+          ]
+        }
+      ],
+      "exports": [
+        "check_schema",
+        "ensure_index_identity"
+      ],
+      "totalLines": 54,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/core/metrics.py": {
+      "filePath": "api/app/core/metrics.py",
+      "contentHash": "bedf43adf31389e0415b3ec939e5114523e77557b0822cfe688cc7bf53a80477",
+      "functions": [
+        {
+          "name": "record_embedding_usage",
+          "params": [
+            "provider",
+            "input_type",
+            "tokens",
+            "texts"
+          ],
+          "exported": true,
+          "lineCount": 7
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "prometheus_client",
+          "specifiers": [
+            "Counter",
+            "Gauge",
+            "Histogram"
+          ]
+        }
+      ],
+      "exports": [
+        "record_embedding_usage"
+      ],
+      "totalLines": 53,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/core/providers.py": {
+      "filePath": "api/app/core/providers.py",
+      "contentHash": "b0fb6ad2c82c1263931ff94efa3d09a51929b007d80eee528bfeb0b5e290771b",
+      "functions": [
+        {
+          "name": "post_json",
+          "params": [
+            "url",
+            "headers",
+            "payload"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "token_count",
+          "params": [
+            "value"
+          ],
+          "returnType": "int | None",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "indexed_embeddings",
+          "params": [
+            "data",
+            "count"
+          ],
+          "returnType": "list",
+          "exported": true,
+          "lineCount": 7
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "logging",
+          "specifiers": [
+            "logging"
+          ]
+        },
+        {
+          "source": "httpx",
+          "specifiers": [
+            "httpx"
+          ]
+        },
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        },
+        {
+          "source": "app.core.errors",
+          "specifiers": [
+            "ProviderError"
+          ]
+        }
+      ],
+      "exports": [
+        "post_json",
+        "token_count",
+        "indexed_embeddings"
+      ],
+      "totalLines": 42,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/core/upload_limit.py": {
+      "filePath": "api/app/core/upload_limit.py",
+      "contentHash": "77384d3446f39e49817e21e7dd0f7891e03869df8e324b0d81c76a9fe4aa333a",
+      "functions": [],
+      "classes": [
+        {
+          "name": "UploadLimitMiddleware",
+          "methods": [
+            "__init__",
+            "__call__"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 49
+        }
+      ],
+      "imports": [
+        {
+          "source": "fastapi.responses",
+          "specifiers": [
+            "JSONResponse"
+          ]
+        },
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        }
+      ],
+      "exports": [
+        "UploadLimitMiddleware"
+      ],
+      "totalLines": 57,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/main.py": {
+      "filePath": "api/app/main.py",
+      "contentHash": "05f37e95ad281ef214ff548bfa8c8258b13f9e75c01eb8f951466518442ca695",
+      "functions": [
+        {
+          "name": "lifespan",
+          "params": [
+            "app"
+          ],
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "service_error_handler",
+          "params": [
+            "request",
+            "exc"
+          ],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "metrics_middleware",
+          "params": [
+            "request",
+            "call_next"
+          ],
+          "exported": true,
+          "lineCount": 31
+        },
+        {
+          "name": "metrics",
+          "params": [],
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "root",
+          "params": [],
+          "exported": true,
+          "lineCount": 7
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "logging",
+          "specifiers": [
+            "logging"
+          ]
+        },
+        {
+          "source": "contextlib",
+          "specifiers": [
+            "asynccontextmanager"
+          ]
+        },
+        {
+          "source": "fastapi",
+          "specifiers": [
+            "FastAPI",
+            "Request"
+          ]
+        },
+        {
+          "source": "fastapi.middleware.cors",
+          "specifiers": [
+            "CORSMiddleware"
+          ]
+        },
+        {
+          "source": "fastapi.responses",
+          "specifiers": [
+            "JSONResponse",
+            "Response"
+          ]
+        },
+        {
+          "source": "prometheus_client",
+          "specifiers": [
+            "CONTENT_TYPE_LATEST",
+            "generate_latest"
+          ]
+        },
+        {
+          "source": "starlette.concurrency",
+          "specifiers": [
+            "run_in_threadpool"
+          ]
+        },
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        },
+        {
+          "source": "app.core.db",
+          "specifiers": [
+            "close_pool",
+            "get_conn",
+            "initialize_database"
+          ]
+        },
+        {
+          "source": "app.core.errors",
+          "specifiers": [
+            "ServiceError"
+          ]
+        },
+        {
+          "source": "app.core.metrics",
+          "specifiers": [
+            "documents_total",
+            "http_requests_total"
+          ]
+        },
+        {
+          "source": "app.core.upload_limit",
+          "specifiers": [
+            "UploadLimitMiddleware"
+          ]
+        },
+        {
+          "source": "app.routers",
+          "specifiers": [
+            "chat",
+            "documents",
+            "health"
+          ]
+        }
+      ],
+      "exports": [
+        "lifespan",
+        "service_error_handler",
+        "metrics_middleware",
+        "metrics",
+        "root"
+      ],
+      "totalLines": 112,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/routers/__init__.py": {
+      "filePath": "api/app/routers/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/routers/chat.py": {
+      "filePath": "api/app/routers/chat.py",
+      "contentHash": "be650bf837b8ad65beb053dc663d4899d70c50f327b28624496f19cf0198667e",
+      "functions": [
+        {
+          "name": "chat",
+          "params": [
+            "req"
+          ],
+          "exported": true,
+          "lineCount": 19
+        }
+      ],
+      "classes": [
+        {
+          "name": "ChatRequest",
+          "methods": [],
+          "properties": [
+            "question",
+            "top_k"
+          ],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "TokenUsage",
+          "methods": [],
+          "properties": [
+            "input_tokens",
+            "output_tokens",
+            "source"
+          ],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "ChatResponse",
+          "methods": [],
+          "properties": [
+            "answer",
+            "sources",
+            "contexts",
+            "latency_ms",
+            "mode",
+            "provider",
+            "model",
+            "usage"
+          ],
+          "exported": true,
+          "lineCount": 9
+        }
+      ],
+      "imports": [
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Literal"
+          ]
+        },
+        {
+          "source": "fastapi",
+          "specifiers": [
+            "APIRouter",
+            "HTTPException"
+          ]
+        },
+        {
+          "source": "pydantic",
+          "specifiers": [
+            "BaseModel",
+            "ConfigDict",
+            "Field"
+          ]
+        },
+        {
+          "source": "app.core.metrics",
+          "specifiers": [
+            "llm_call_latency",
+            "llm_tokens_total",
+            "rag_query_latency"
+          ]
+        },
+        {
+          "source": "app.services.llm",
+          "specifiers": [
+            "generate"
+          ]
+        },
+        {
+          "source": "app.services.retrieval",
+          "specifiers": [
+            "retrieve"
+          ]
+        }
+      ],
+      "exports": [
+        "ChatRequest",
+        "TokenUsage",
+        "ChatResponse",
+        "chat"
+      ],
+      "totalLines": 59,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/routers/documents.py": {
+      "filePath": "api/app/routers/documents.py",
+      "contentHash": "0def7c0ace9623b230e961219bdab83fd10d65caefe04c36ee43c44e90bba6f8",
+      "functions": [
+        {
+          "name": "upload_document",
+          "params": [
+            "file"
+          ],
+          "exported": true,
+          "lineCount": 29
+        },
+        {
+          "name": "list_documents",
+          "params": [],
+          "exported": true,
+          "lineCount": 18
+        },
+        {
+          "name": "delete_document",
+          "params": [
+            "document_id"
+          ],
+          "exported": true,
+          "lineCount": 8
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "fastapi",
+          "specifiers": [
+            "APIRouter",
+            "HTTPException",
+            "UploadFile"
+          ]
+        },
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        },
+        {
+          "source": "app.core.db",
+          "specifiers": [
+            "get_conn"
+          ]
+        },
+        {
+          "source": "app.core.errors",
+          "specifiers": [
+            "InvalidDocument"
+          ]
+        },
+        {
+          "source": "app.services.ingestion",
+          "specifiers": [
+            "ingest_document_sync"
+          ]
+        }
+      ],
+      "exports": [
+        "upload_document",
+        "list_documents",
+        "delete_document"
+      ],
+      "totalLines": 76,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/routers/health.py": {
+      "filePath": "api/app/routers/health.py",
+      "contentHash": "0d900b0861b833c094946cefd9eb9cabbfe9ef36286d11de6ac736444f621ff1",
+      "functions": [
+        {
+          "name": "liveness",
+          "params": [],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "readiness",
+          "params": [],
+          "exported": true,
+          "lineCount": 6
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "fastapi",
+          "specifiers": [
+            "APIRouter"
+          ]
+        },
+        {
+          "source": "fastapi.responses",
+          "specifiers": [
+            "JSONResponse"
+          ]
+        },
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        },
+        {
+          "source": "app.core.db",
+          "specifiers": [
+            "healthcheck"
+          ]
+        }
+      ],
+      "exports": [
+        "liveness",
+        "readiness"
+      ],
+      "totalLines": 24,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/services/__init__.py": {
+      "filePath": "api/app/services/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/services/chunking.py": {
+      "filePath": "api/app/services/chunking.py",
+      "contentHash": "5080bf8492435731726d934e2a2c6e1e1f356a218bdb789508e451784f3dbc38",
+      "functions": [
+        {
+          "name": "chunk_text",
+          "params": [
+            "text"
+          ],
+          "returnType": "list[str]",
+          "exported": true,
+          "lineCount": 14
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        }
+      ],
+      "exports": [
+        "chunk_text"
+      ],
+      "totalLines": 22,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/services/embeddings.py": {
+      "filePath": "api/app/services/embeddings.py",
+      "contentHash": "5a2741dde3e7e8ed9677c6ef934cd1835d2d22e723cbd7dd5a34ff9e2548c361",
+      "functions": [
+        {
+          "name": "_local_embed",
+          "params": [
+            "texts",
+            "dim"
+          ],
+          "returnType": "list[list[float]]",
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "validate_vectors",
+          "params": [
+            "vectors",
+            "expected_count",
+            "dim"
+          ],
+          "returnType": "list[list[float]]",
+          "exported": true,
+          "lineCount": 23
+        },
+        {
+          "name": "_gemini_embed",
+          "params": [
+            "texts",
+            "input_type",
+            "settings"
+          ],
+          "exported": true,
+          "lineCount": 34
+        },
+        {
+          "name": "_real_embed",
+          "params": [
+            "texts",
+            "input_type",
+            "settings"
+          ],
+          "exported": true,
+          "lineCount": 48
+        },
+        {
+          "name": "embed",
+          "params": [
+            "texts",
+            "input_type"
+          ],
+          "returnType": "list[list[float]]",
+          "exported": true,
+          "lineCount": 25
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "hashlib",
+          "specifiers": [
+            "hashlib"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        },
+        {
+          "source": "app.core.errors",
+          "specifiers": [
+            "ProviderError"
+          ]
+        },
+        {
+          "source": "app.core.metrics",
+          "specifiers": [
+            "record_embedding_usage"
+          ]
+        },
+        {
+          "source": "app.core.providers",
+          "specifiers": [
+            "indexed_embeddings",
+            "post_json",
+            "token_count"
+          ]
+        }
+      ],
+      "exports": [
+        "_local_embed",
+        "validate_vectors",
+        "_gemini_embed",
+        "_real_embed",
+        "embed"
+      ],
+      "totalLines": 162,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/services/ingestion.py": {
+      "filePath": "api/app/services/ingestion.py",
+      "contentHash": "559a6cfc347da3994d08900734aa9e7cfa3fbac4fa065f569f594f19d8e93716",
+      "functions": [
+        {
+          "name": "extract_text",
+          "params": [
+            "filename",
+            "content"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 29
+        },
+        {
+          "name": "_pipeline_id",
+          "params": [],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "process_document",
+          "params": [
+            "document_id",
+            "filename",
+            "content"
+          ],
+          "returnType": "int",
+          "exported": true,
+          "lineCount": 93
+        },
+        {
+          "name": "ingest_document_sync",
+          "params": [
+            "document_id",
+            "filename",
+            "content"
+          ],
+          "returnType": "int",
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "hashlib",
+          "specifiers": [
+            "hashlib"
+          ]
+        },
+        {
+          "source": "io",
+          "specifiers": [
+            "io"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "logging",
+          "specifiers": [
+            "logging"
+          ]
+        },
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        },
+        {
+          "source": "app.core.db",
+          "specifiers": [
+            "get_conn"
+          ]
+        },
+        {
+          "source": "app.core.errors",
+          "specifiers": [
+            "DocumentConflict",
+            "DocumentNotFound",
+            "InvalidDocument",
+            "ServiceError"
+          ]
+        },
+        {
+          "source": "app.core.index",
+          "specifiers": [
+            "check_schema",
+            "ensure_index_identity"
+          ]
+        },
+        {
+          "source": "app.core.metrics",
+          "specifiers": [
+            "ingestion_errors_total"
+          ]
+        },
+        {
+          "source": "app.services.chunking",
+          "specifiers": [
+            "chunk_text"
+          ]
+        },
+        {
+          "source": "app.services.embeddings",
+          "specifiers": [
+            "embed",
+            "validate_vectors"
+          ]
+        }
+      ],
+      "exports": [
+        "extract_text",
+        "_pipeline_id",
+        "process_document",
+        "ingest_document_sync"
+      ],
+      "totalLines": 170,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/services/llm.py": {
+      "filePath": "api/app/services/llm.py",
+      "contentHash": "5406bd9d5d31ed224ff7f19349f01cf8a019b01bfe7955f8c9d2e6e088a08667",
+      "functions": [
+        {
+          "name": "_build_user_message",
+          "params": [
+            "question",
+            "contexts"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "_real_generate",
+          "params": [
+            "question",
+            "contexts",
+            "settings"
+          ],
+          "exported": true,
+          "lineCount": 78
+        },
+        {
+          "name": "generate",
+          "params": [
+            "question",
+            "contexts"
+          ],
+          "returnType": "dict",
+          "exported": true,
+          "lineCount": 37
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "urllib.parse",
+          "specifiers": [
+            "quote"
+          ]
+        },
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        },
+        {
+          "source": "app.core.errors",
+          "specifiers": [
+            "ProviderError"
+          ]
+        },
+        {
+          "source": "app.core.providers",
+          "specifiers": [
+            "post_json",
+            "token_count"
+          ]
+        }
+      ],
+      "exports": [
+        "_build_user_message",
+        "_real_generate",
+        "generate"
+      ],
+      "totalLines": 146,
+      "hasStructuralAnalysis": true
+    },
+    "api/app/services/retrieval.py": {
+      "filePath": "api/app/services/retrieval.py",
+      "contentHash": "dc9028f7180cd903699f6337b73dcda979eb1e12cb4e5c30db50ee1e556919d0",
+      "functions": [
+        {
+          "name": "retrieve",
+          "params": [
+            "question",
+            "top_k"
+          ],
+          "returnType": "list[dict]",
+          "exported": true,
+          "lineCount": 33
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        },
+        {
+          "source": "app.core.db",
+          "specifiers": [
+            "get_conn"
+          ]
+        },
+        {
+          "source": "app.core.index",
+          "specifiers": [
+            "check_schema",
+            "ensure_index_identity"
+          ]
+        },
+        {
+          "source": "app.services.embeddings",
+          "specifiers": [
+            "embed"
+          ]
+        }
+      ],
+      "exports": [
+        "retrieve"
+      ],
+      "totalLines": 42,
+      "hasStructuralAnalysis": true
+    },
+    "api/requirements.in": {
+      "filePath": "api/requirements.in",
+      "contentHash": "2399b6676c889be29a5bf33c2a54260714e52f36f240d980a3a88f6ba746efd1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 13,
+      "hasStructuralAnalysis": false
+    },
+    "api/requirements.txt": {
+      "filePath": "api/requirements.txt",
+      "contentHash": "470cac250b06cdbc12f2a25f4e08e8917c51c3023934caec205be6f8548f28e9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 740,
+      "hasStructuralAnalysis": false
+    },
+    "api/tests/support.py": {
+      "filePath": "api/tests/support.py",
+      "contentHash": "ddc86a6a10db8cb137645380fe84f3b774281cfdf827e90b763274c5e9827442",
+      "functions": [
+        {
+          "name": "configured",
+          "params": [
+            "**values"
+          ],
+          "exported": true,
+          "lineCount": 28
+        },
+        {
+          "name": "real_config",
+          "params": [
+            "provider",
+            "**extra"
+          ],
+          "exported": true,
+          "lineCount": 11
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "contextlib",
+          "specifiers": [
+            "contextmanager"
+          ]
+        },
+        {
+          "source": "unittest.mock",
+          "specifiers": [
+            "patch"
+          ]
+        },
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        }
+      ],
+      "exports": [
+        "configured",
+        "real_config"
+      ],
+      "totalLines": 62,
+      "hasStructuralAnalysis": true
+    },
+    "api/tests/test_integration.py": {
+      "filePath": "api/tests/test_integration.py",
+      "contentHash": "2696e7a12814e07ab54c2c6480cd1d1a9ef6f840fd1c49b32bdb4d6f5fc109b3",
+      "functions": [],
+      "classes": [
+        {
+          "name": "IntegrationTests",
+          "methods": [
+            "setUpClass",
+            "cleanup_schema",
+            "setUp",
+            "create_document",
+            "state",
+            "test_fixture_upload_retrieve_chat_metrics_delete_end_to_end",
+            "test_successful_retry_is_noop_and_conflicting_payload_is_409",
+            "test_concurrent_successful_retries_call_provider_once",
+            "test_failed_attempt_and_concurrent_retry_end_ready",
+            "test_failed_vectors_are_atomic_and_can_retry",
+            "test_mid_insert_database_failure_rolls_back_all_chunks",
+            "test_empty_extracted_text_is_failed_and_422",
+            "test_index_identity_change_rejects_query_upload_and_readiness",
+            "test_same_dimension_real_provider_cannot_query_fixture_index",
+            "test_dimension_mismatch_is_rejected_before_provider",
+            "test_real_gateway_full_pipeline_with_mock_http",
+            "test_provider_failure_is_502_and_metadata_truthful"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 312
+        }
+      ],
+      "imports": [
+        {
+          "source": "concurrent.futures",
+          "specifiers": [
+            "concurrent.futures"
+          ]
+        },
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        },
+        {
+          "source": "unittest",
+          "specifiers": [
+            "unittest"
+          ]
+        },
+        {
+          "source": "uuid",
+          "specifiers": [
+            "uuid"
+          ]
+        },
+        {
+          "source": "unittest.mock",
+          "specifiers": [
+            "patch"
+          ]
+        },
+        {
+          "source": "support",
+          "specifiers": [
+            "configured",
+            "real_config"
+          ]
+        },
+        {
+          "source": "psycopg",
+          "specifiers": [
+            "psycopg"
+          ]
+        },
+        {
+          "source": "psycopg",
+          "specifiers": [
+            "sql"
+          ]
+        },
+        {
+          "source": "psycopg_pool",
+          "specifiers": [
+            "ConnectionPool"
+          ]
+        },
+        {
+          "source": "fastapi.testclient",
+          "specifiers": [
+            "TestClient"
+          ]
+        },
+        {
+          "source": "app.core",
+          "specifiers": [
+            "db"
+          ]
+        },
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "get_settings"
+          ]
+        },
+        {
+          "source": "app.core.errors",
+          "specifiers": [
+            "DocumentConflict",
+            "IndexIdentityConflict",
+            "ProviderError",
+            "SchemaMismatch"
+          ]
+        },
+        {
+          "source": "app.core.index",
+          "specifiers": [
+            "check_schema"
+          ]
+        },
+        {
+          "source": "app.main",
+          "specifiers": [
+            "app"
+          ]
+        },
+        {
+          "source": "app.services.embeddings",
+          "specifiers": [
+            "_local_embed"
+          ]
+        },
+        {
+          "source": "app.services.ingestion",
+          "specifiers": [
+            "process_document"
+          ]
+        },
+        {
+          "source": "app.services.retrieval",
+          "specifiers": [
+            "retrieve"
+          ]
+        }
+      ],
+      "exports": [
+        "IntegrationTests"
+      ],
+      "totalLines": 352,
+      "hasStructuralAnalysis": true
+    },
+    "api/tests/test_unit_config.py": {
+      "filePath": "api/tests/test_unit_config.py",
+      "contentHash": "2c84f21ac13910aa57e5fec5fe6d533be22fc8b8797c3fa85ef5417166a585de",
+      "functions": [],
+      "classes": [
+        {
+          "name": "ConfigTests",
+          "methods": [
+            "test_fixture_requires_both_explicit_providers",
+            "test_real_requires_credentials_explicit_model_and_endpoint",
+            "test_settings_errors_hide_secrets",
+            "test_invalid_numeric_configuration",
+            "test_ollama_uses_dedicated_native_dimension",
+            "test_identity_changes_with_vector_space_but_not_chat_model_or_key",
+            "test_chunking_progress_overlap_and_empty"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 86
+        }
+      ],
+      "imports": [
+        {
+          "source": "unittest",
+          "specifiers": [
+            "unittest"
+          ]
+        },
+        {
+          "source": "unittest.mock",
+          "specifiers": [
+            "patch"
+          ]
+        },
+        {
+          "source": "support",
+          "specifiers": [
+            "configured",
+            "real_config"
+          ]
+        },
+        {
+          "source": "pydantic",
+          "specifiers": [
+            "ValidationError"
+          ]
+        },
+        {
+          "source": "app.core.config",
+          "specifiers": [
+            "Settings"
+          ]
+        },
+        {
+          "source": "app.services.chunking",
+          "specifiers": [
+            "chunk_text"
+          ]
+        }
+      ],
+      "exports": [
+        "ConfigTests"
+      ],
+      "totalLines": 96,
+      "hasStructuralAnalysis": true
+    },
+    "api/tests/test_unit_http.py": {
+      "filePath": "api/tests/test_unit_http.py",
+      "contentHash": "df01b8bc43824e8b1725701d0538ac6991e6c642ec836c03c090ad4db2052684",
+      "functions": [],
+      "classes": [
+        {
+          "name": "HttpTests",
+          "methods": [
+            "test_whitespace_question_and_unknown_fields_rejected",
+            "test_provider_error_response_is_sanitized",
+            "test_unexpected_errors_are_sanitized_and_counted_as_500",
+            "test_empty_upload_returns_422",
+            "test_file_read_is_bounded_and_closed",
+            "test_invalid_documents_and_blank_pdf_are_422_errors",
+            "test_metrics_route_labels_do_not_include_user_paths_or_methods"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 89
+        },
+        {
+          "name": "AsyncHttpTests",
+          "methods": [
+            "test_health_remains_responsive_during_blocking_chat",
+            "test_chunked_upload_limit_stops_before_parser_and_without_content_length"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 52
+        }
+      ],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "io",
+          "specifiers": [
+            "io"
+          ]
+        },
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        },
+        {
+          "source": "unittest",
+          "specifiers": [
+            "unittest"
+          ]
+        },
+        {
+          "source": "unittest.mock",
+          "specifiers": [
+            "patch"
+          ]
+        },
+        {
+          "source": "httpx",
+          "specifiers": [
+            "httpx"
+          ]
+        },
+        {
+          "source": "fastapi",
+          "specifiers": [
+            "HTTPException",
+            "UploadFile"
+          ]
+        },
+        {
+          "source": "fastapi.testclient",
+          "specifiers": [
+            "TestClient"
+          ]
+        },
+        {
+          "source": "pypdf",
+          "specifiers": [
+            "PdfWriter"
+          ]
+        },
+        {
+          "source": "support",
+          "specifiers": [
+            "configured"
+          ]
+        },
+        {
+          "source": "app.core.errors",
+          "specifiers": [
+            "InvalidDocument",
+            "ProviderError"
+          ]
+        },
+        {
+          "source": "app.core.metrics",
+          "specifiers": [
+            "http_requests_total"
+          ]
+        },
+        {
+          "source": "app.core.upload_limit",
+          "specifiers": [
+            "UploadLimitMiddleware"
+          ]
+        },
+        {
+          "source": "app.main",
+          "specifiers": [
+            "app"
+          ]
+        },
+        {
+          "source": "app.routers.documents",
+          "specifiers": [
+            "upload_document"
+          ]
+        },
+        {
+          "source": "app.services.ingestion",
+          "specifiers": [
+            "extract_text"
+          ]
+        }
+      ],
+      "exports": [
+        "HttpTests",
+        "AsyncHttpTests"
+      ],
+      "totalLines": 163,
+      "hasStructuralAnalysis": true
+    },
+    "api/tests/test_unit_providers.py": {
+      "filePath": "api/tests/test_unit_providers.py",
+      "contentHash": "6284da4ea5ec98ded3cd1f5a6a1c4124d8cfa2bf6173edaa7fdd908bbd23e406",
+      "functions": [],
+      "classes": [
+        {
+          "name": "EmbeddingTests",
+          "methods": [
+            "test_fixture_is_deterministic_finite_and_normalized",
+            "test_invalid_vectors_are_rejected",
+            "test_openai_request_dimension_and_response_order",
+            "test_missing_duplicate_or_wrong_embedding_indices_fail",
+            "test_real_failure_never_uses_fixture",
+            "test_gemini_two_separate_requests_and_task_prefixes",
+            "test_gemini_usage_uses_provider_tokens_without_inventing_missing_values",
+            "test_gemini_one_uses_task_type",
+            "test_ollama_native_vectors_no_truncation_or_padding",
+            "test_voyage_payload_and_usage",
+            "test_batches_have_a_bounded_size",
+            "test_empty_input_is_explicit",
+            "test_estimate_and_reported_usage_are_separate"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 212
+        },
+        {
+          "name": "GenerationTests",
+          "methods": [
+            "test_fixture_label_and_usage_truth",
+            "test_openai_gateway_explicit_endpoint_and_usage",
+            "test_other_chat_provider_contracts",
+            "test_failure_or_empty_real_answer_is_not_fixture",
+            "test_missing_usage_is_not_reported_as_zero",
+            "test_transport_errors_and_bodies_are_sanitized",
+            "test_timeout_is_sanitized"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 140
+        }
+      ],
+      "imports": [
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "unittest",
+          "specifiers": [
+            "unittest"
+          ]
+        },
+        {
+          "source": "unittest.mock",
+          "specifiers": [
+            "patch"
+          ]
+        },
+        {
+          "source": "httpx",
+          "specifiers": [
+            "httpx"
+          ]
+        },
+        {
+          "source": "support",
+          "specifiers": [
+            "configured",
+            "real_config"
+          ]
+        },
+        {
+          "source": "app.core.errors",
+          "specifiers": [
+            "ProviderError"
+          ]
+        },
+        {
+          "source": "app.core.providers",
+          "specifiers": [
+            "post_json"
+          ]
+        },
+        {
+          "source": "app.core.metrics",
+          "specifiers": [
+            "embedding_tokens_total",
+            "embedding_estimated_tokens_total",
+            "record_embedding_usage"
+          ]
+        },
+        {
+          "source": "app.services.embeddings",
+          "specifiers": [
+            "embed",
+            "validate_vectors"
+          ]
+        },
+        {
+          "source": "app.services.llm",
+          "specifiers": [
+            "generate"
+          ]
+        }
+      ],
+      "exports": [
+        "EmbeddingTests",
+        "GenerationTests"
+      ],
+      "totalLines": 372,
+      "hasStructuralAnalysis": true
+    },
+    "chatops-bot/Dockerfile": {
+      "filePath": "chatops-bot/Dockerfile",
+      "contentHash": "b46679eabe929d7bb6790b6deffad03d82103384045c269f481e5dd980e62e4e",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 29,
+      "hasStructuralAnalysis": true
+    },
+    "chatops-bot/README.md": {
+      "filePath": "chatops-bot/README.md",
+      "contentHash": "c599f03a1c68c81a9beba5d50c38e1a13c3349e9dc4145baa9f545f876b192ea",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "chatops-bot/app/__init__.py": {
+      "filePath": "chatops-bot/app/__init__.py",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": true
+    },
+    "chatops-bot/app/audit.py": {
+      "filePath": "chatops-bot/app/audit.py",
+      "contentHash": "598c2cc1882f7aa1e3134f2a34f36243f9f83fe859623e7393503eec88bce201",
+      "functions": [
+        {
+          "name": "log_tool_call",
+          "params": [
+            "user",
+            "tool",
+            "args",
+            "result_summary",
+            "approved"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 29
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "logging",
+          "specifiers": [
+            "logging"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime",
+            "timezone"
+          ]
+        }
+      ],
+      "exports": [
+        "log_tool_call"
+      ],
+      "totalLines": 45,
+      "hasStructuralAnalysis": true
+    },
+    "chatops-bot/app/main.py": {
+      "filePath": "chatops-bot/app/main.py",
+      "contentHash": "83e9b6ae8afdfdb320472359339adc317d587ff947a85106547375f35a4f4dba",
+      "functions": [
+        {
+          "name": "health",
+          "params": [],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "slack_events",
+          "params": [],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "handle_question",
+          "params": [
+            "question"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 4
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "fastapi",
+          "specifiers": [
+            "FastAPI",
+            "HTTPException"
+          ]
+        }
+      ],
+      "exports": [
+        "health",
+        "slack_events",
+        "handle_question"
+      ],
+      "totalLines": 18,
+      "hasStructuralAnalysis": true
+    },
+    "chatops-bot/requirements.in": {
+      "filePath": "chatops-bot/requirements.in",
+      "contentHash": "b1f2fb438d0b3b2f29adb6f54f4022c8d30a12bdb6cc965daa56ca8d03d4edc2",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4,
+      "hasStructuralAnalysis": false
+    },
+    "chatops-bot/requirements.txt": {
+      "filePath": "chatops-bot/requirements.txt",
+      "contentHash": "272d8b1386e2d396cf67b294162c7a20e0d90a5a7ee9fef08b8d2fc73481250d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 624,
+      "hasStructuralAnalysis": false
+    },
+    "docker-compose.yml": {
+      "filePath": "docker-compose.yml",
+      "contentHash": "97d05b51aebcef8b1eb4f995ca9a402528bc05d6d09cf797a36a77701a315dc0",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 71,
+      "hasStructuralAnalysis": false
+    },
+    "docs/Guide_Coding_Host_DO2603.md": {
+      "filePath": "docs/Guide_Coding_Host_DO2603.md",
+      "contentHash": "88828a9a31973f701f03e1346884af746b712986eec44d67f98b7ad662096519",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 105,
+      "hasStructuralAnalysis": true
+    },
+    "docs/Guide_Local_AWS_Cost_DO2603.md": {
+      "filePath": "docs/Guide_Local_AWS_Cost_DO2603.md",
+      "contentHash": "b3f0cd8e8699f46111f2a568720fdfb4af00be56fa31a5ba365f747bff8b9cde",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 82,
+      "hasStructuralAnalysis": true
+    },
+    "docs/MCP_Tool_Selection_DO2603.md": {
+      "filePath": "docs/MCP_Tool_Selection_DO2603.md",
+      "contentHash": "07845296b78333839ad745b5e60be356d215248f21043b06f97eba03e4ba8c32",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 148,
+      "hasStructuralAnalysis": true
+    },
+    "docs/lab-guides/Day1-AI-Coding-Agents.md": {
+      "filePath": "docs/lab-guides/Day1-AI-Coding-Agents.md",
+      "contentHash": "2800bd1026ef76813101a52fcb44b0429a26866d287bfdaf3a13951dee5288c5",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 25,
+      "hasStructuralAnalysis": true
+    },
+    "docs/lab-guides/Day2-MCP-Protocol.md": {
+      "filePath": "docs/lab-guides/Day2-MCP-Protocol.md",
+      "contentHash": "e9d18ff113c8edc2dfac579d1eadd057ad0b2493ff92a240f82a5eca8e90ba50",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 23,
+      "hasStructuralAnalysis": true
+    },
+    "docs/lab-guides/Day3-AI-IaC-Pipeline.md": {
+      "filePath": "docs/lab-guides/Day3-AI-IaC-Pipeline.md",
+      "contentHash": "9c4b1035f9dda591cb0e35c687a8afb95be2c6ade2e9bee2da72078f7b24f51c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 21,
+      "hasStructuralAnalysis": true
+    },
+    "docs/lab-guides/Day4-AIOps-Observability.md": {
+      "filePath": "docs/lab-guides/Day4-AIOps-Observability.md",
+      "contentHash": "199c3fe9291319ee9e0127956033487270d19bdabc71c22846a5eed3a13c09cf",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 21,
+      "hasStructuralAnalysis": true
+    },
+    "docs/lab-guides/Day5-ChatOps-Incident-Response.md": {
+      "filePath": "docs/lab-guides/Day5-ChatOps-Incident-Response.md",
+      "contentHash": "76805ebbc0bef8a61b983a166284576ec20ff6b547c7d5b11b15c1d230058e85",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 21,
+      "hasStructuralAnalysis": true
+    },
+    "docs/lab-guides/Day6-Security-Governance-FinOps.md": {
+      "filePath": "docs/lab-guides/Day6-Security-Governance-FinOps.md",
+      "contentHash": "3f75571369d169ae60b3563d800adab10531335a2428edeb317473371a9ed404",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 23,
+      "hasStructuralAnalysis": true
+    },
+    "docs/lab-guides/Day7-Showcase.md": {
+      "filePath": "docs/lab-guides/Day7-Showcase.md",
+      "contentHash": "b9363caaeac4a83cf8dd50c7754889da2cc31a54d49c892155a0ac801b140d27",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 23,
+      "hasStructuralAnalysis": true
+    },
+    "docs/lab-guides/README.md": {
+      "filePath": "docs/lab-guides/README.md",
+      "contentHash": "bd9bd9f30a5f4efb798ba66c0f08688583f40c3a334a5b4cb90f29cbbfaf6722",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 14,
+      "hasStructuralAnalysis": true
+    },
+    "infra/README.md": {
+      "filePath": "infra/README.md",
+      "contentHash": "d90f8bf77abfbf17fc8da5db396d6765fba057d887e2881df65afb1a519d0465",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "infra/db/init.sql": {
+      "filePath": "infra/db/init.sql",
+      "contentHash": "f38707288ae81ab2a023bb1b85350c70d2b307681cc8e18a1075a505f7ad6f65",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 62,
+      "hasStructuralAnalysis": true
+    },
+    "ingestion-worker/README.md": {
+      "filePath": "ingestion-worker/README.md",
+      "contentHash": "342c342b6b9773a2f498cb1b891567c07bfdb2312664d22f68ea3a8372855ff3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "ingestion-worker/worker/.gitkeep": {
+      "filePath": "ingestion-worker/worker/.gitkeep",
+      "contentHash": "fd5de2bf64824b7349d87c80e09756e93cf21c4cf400dd872c6a74782db38ec0",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 8,
+      "hasStructuralAnalysis": false
+    },
+    "observability/README.md": {
+      "filePath": "observability/README.md",
+      "contentHash": "2f6a2d59fc1277e7228cb374e535dce5d6d87b6ad88e45b55269490283f3b95d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "sample-docs/README.md": {
+      "filePath": "sample-docs/README.md",
+      "contentHash": "70c59ca915af94e072a70dbe08c6919ccf7e53b83197fcbb42a09537bd4f2613",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 12,
+      "hasStructuralAnalysis": true
+    },
+    "sample-docs/huong-dan-nguoi-moi.md": {
+      "filePath": "sample-docs/huong-dan-nguoi-moi.md",
+      "contentHash": "bf44d1b77a81203b657220cf719e489d68e366c5383dde481f3d2a00ac37e3b4",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 31,
+      "hasStructuralAnalysis": true
+    },
+    "sample-docs/service-level-objectives.md": {
+      "filePath": "sample-docs/service-level-objectives.md",
+      "contentHash": "312e1e4be2fe69cd5d9140df2a852503a7f5309cf4c2d3d6ce9b27a501e86d02",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 34,
+      "hasStructuralAnalysis": true
+    },
+    "sample-docs/so-tay-van-hanh.md": {
+      "filePath": "sample-docs/so-tay-van-hanh.md",
+      "contentHash": "08512f42a85ec3c409dd31073ff529f011b96139b64b2f796353fedd8d6f0b4d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 35,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/VERIFICATION_CONTRACT.md": {
+      "filePath": "scripts/VERIFICATION_CONTRACT.md",
+      "contentHash": "72b2143bf1819275527373edf31fc4ea9e28077d8bca9f647f1af68ac1d87234",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 187,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/check-agent-setup.py": {
+      "filePath": "scripts/check-agent-setup.py",
+      "contentHash": "cf237208387bd40533eff90495493174d109992d9e9ce8461fe02f988f5b9f16",
+      "functions": [
+        {
+          "name": "local_file",
+          "params": [
+            "root",
+            "name"
+          ],
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "unique_pairs",
+          "params": [
+            "pairs"
+          ],
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "check",
+          "params": [
+            "root",
+            "host",
+            "config",
+            "context"
+          ],
+          "exported": true,
+          "lineCount": 41
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 17
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "argparse",
+          "specifiers": [
+            "argparse"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "re",
+          "specifiers": [
+            "re"
+          ]
+        },
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        }
+      ],
+      "exports": [
+        "local_file",
+        "unique_pairs",
+        "check",
+        "main"
+      ],
+      "totalLines": 96,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/requirements-verification.in": {
+      "filePath": "scripts/requirements-verification.in",
+      "contentHash": "f162e296b68347d915337de1b960b3a7564fa3031b45bb7813ef2eb5fec7186f",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4,
+      "hasStructuralAnalysis": false
+    },
+    "scripts/requirements-verification.txt": {
+      "filePath": "scripts/requirements-verification.txt",
+      "contentHash": "b644b953a9d640fcfb94ec9cacffebec7a1f8d18df8de90ab9f0c04a39328fb0",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 102,
+      "hasStructuralAnalysis": false
+    },
+    "scripts/smoke-test.sh": {
+      "filePath": "scripts/smoke-test.sh",
+      "contentHash": "997016c46265f1c36f4bad9d37b5179f1d441a507845f15ab93a9a9e929918b8",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/verify-day-1.sh": {
+      "filePath": "scripts/verify-day-1.sh",
+      "contentHash": "eda874dfe098fc621c41412a77600782187a6bda6f979634b4cdf57b0f6623a1",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/verify-day-2.sh": {
+      "filePath": "scripts/verify-day-2.sh",
+      "contentHash": "7224ef0e04acf0dbf35f51f8110174fef27c2b35f6505c65957c2ff3b6828b70",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/verify-day-3.sh": {
+      "filePath": "scripts/verify-day-3.sh",
+      "contentHash": "ed8881604ede295f895bcd4e8648598e894fa9a0266bf396bc9c3960f1eddf29",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/verify-day-4.sh": {
+      "filePath": "scripts/verify-day-4.sh",
+      "contentHash": "a8718cc78271d40d64b47f6ac0ad823c34bad27bdab5773c9a1fc2a05d36f746",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/verify-day-5.sh": {
+      "filePath": "scripts/verify-day-5.sh",
+      "contentHash": "f7cc687ee3445e238780518bdb86983c2651f70eb54ac0b7f2c61ccfa893bb3c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/verify-day-6.sh": {
+      "filePath": "scripts/verify-day-6.sh",
+      "contentHash": "e0ea32285f2d65e72eb6129f4f7871dd11e20d9dcca615cc5fb65b8971017d1e",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/verify-day-7.sh": {
+      "filePath": "scripts/verify-day-7.sh",
+      "contentHash": "6ca5704200407981b1c0555599e7aa3f79e6a3ec02539a72be20122064bb4d77",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/verify-setup.sh": {
+      "filePath": "scripts/verify-setup.sh",
+      "contentHash": "79b5705ebaf94f177b7f849581814dfcba1234224c1ad914c5411611e8338c38",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/verify-starter.sh": {
+      "filePath": "scripts/verify-starter.sh",
+      "contentHash": "2ecc6e0d2f1e4a1bb8ce1b04392cd96d468d557e1f6631bef7f610ffeee86152",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    "scripts/verify.py": {
+      "filePath": "scripts/verify.py",
+      "contentHash": "061b71f89173d2c33ac526ee3dcd27742669fa1dd31306655a6b71a9c266ef1a",
+      "functions": [
+        {
+          "name": "need",
+          "params": [
+            "condition",
+            "message"
+          ],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "require",
+          "params": [
+            "condition",
+            "message"
+          ],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "sha",
+          "params": [
+            "path"
+          ],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "safe_path",
+          "params": [
+            "root",
+            "name"
+          ],
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "load_json",
+          "params": [
+            "path"
+          ],
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "timestamp",
+          "params": [
+            "value"
+          ],
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "fresh",
+          "params": [
+            "value",
+            "hours"
+          ],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "real_text",
+          "params": [
+            "value"
+          ],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "number",
+          "params": [
+            "value",
+            "nonnegative"
+          ],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "source_files",
+          "params": [
+            "root"
+          ],
+          "exported": true,
+          "lineCount": 34
+        },
+        {
+          "name": "fingerprint",
+          "params": [
+            "root"
+          ],
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "command",
+          "params": [
+            "argv",
+            "cwd",
+            "timeout",
+            "env"
+          ],
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "valid_url",
+          "params": [
+            "value"
+          ],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "read_http_body",
+          "params": [
+            "response",
+            "deadline"
+          ],
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "http",
+          "params": [
+            "url",
+            "timeout",
+            "body",
+            "headers",
+            "method"
+          ],
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "json_response",
+          "params": [
+            "raw"
+          ],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "smoke",
+          "params": [
+            "args",
+            "async_required"
+          ],
+          "exported": true,
+          "lineCount": 71
+        },
+        {
+          "name": "evidence",
+          "params": [
+            "args",
+            "day"
+          ],
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "artifact",
+          "params": [
+            "args",
+            "data",
+            "role"
+          ],
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "implemented_python",
+          "params": [
+            "path"
+          ],
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "validate_junit",
+          "params": [
+            "path",
+            "required"
+          ],
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "run_tests",
+          "params": [
+            "args",
+            "day",
+            "scratch"
+          ],
+          "exported": true,
+          "lineCount": 30
+        },
+        {
+          "name": "docker_args",
+          "params": [
+            "args"
+          ],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "compose_args",
+          "params": [
+            "args"
+          ],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "day1",
+          "params": [
+            "args",
+            "data",
+            "scratch"
+          ],
+          "exported": true,
+          "lineCount": 36
+        },
+        {
+          "name": "day2",
+          "params": [
+            "args",
+            "data",
+            "scratch"
+          ],
+          "exported": true,
+          "lineCount": 63
+        },
+        {
+          "name": "day3",
+          "params": [
+            "args",
+            "data",
+            "scratch"
+          ],
+          "exported": true,
+          "lineCount": 37
+        },
+        {
+          "name": "load_yaml",
+          "params": [
+            "path"
+          ],
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "validate_rule_tests",
+          "params": [
+            "rules",
+            "tests"
+          ],
+          "exported": true,
+          "lineCount": 28
+        },
+        {
+          "name": "verify_rca_component",
+          "params": [
+            "args",
+            "data",
+            "scratch"
+          ],
+          "exported": true,
+          "lineCount": 43
+        },
+        {
+          "name": "day4",
+          "params": [
+            "args",
+            "data",
+            "scratch"
+          ],
+          "exported": true,
+          "lineCount": 25
+        },
+        {
+          "name": "audit_events",
+          "params": [
+            "data",
+            "run_id",
+            "after"
+          ],
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "day5",
+          "params": [
+            "args",
+            "data",
+            "scratch"
+          ],
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "eval_report",
+          "params": [
+            "report",
+            "dataset",
+            "digest",
+            "source",
+            "args",
+            "final"
+          ],
+          "exported": true,
+          "lineCount": 26
+        },
+        {
+          "name": "cost_report",
+          "params": [
+            "cost",
+            "results",
+            "source",
+            "args"
+          ],
+          "exported": true,
+          "lineCount": 29
+        },
+        {
+          "name": "day6",
+          "params": [
+            "args",
+            "data",
+            "scratch"
+          ],
+          "exported": true,
+          "lineCount": 29
+        },
+        {
+          "name": "starter",
+          "params": [
+            "args"
+          ],
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "setup",
+          "params": [
+            "args",
+            "scratch"
+          ],
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "positive",
+          "params": [
+            "value"
+          ],
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "parser",
+          "params": [],
+          "exported": true,
+          "lineCount": 31
+        },
+        {
+          "name": "main",
+          "params": [
+            "argv"
+          ],
+          "exported": true,
+          "lineCount": 70
+        }
+      ],
+      "classes": [
+        {
+          "name": "Incomplete",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "Failed",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "NoRedirect",
+          "methods": [
+            "redirect_request"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "Parser",
+          "methods": [
+            "error"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "imports": [
+        {
+          "source": "argparse",
+          "specifiers": [
+            "argparse"
+          ]
+        },
+        {
+          "source": "ast",
+          "specifiers": [
+            "ast"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "dt"
+          ]
+        },
+        {
+          "source": "hashlib",
+          "specifiers": [
+            "hashlib"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "re",
+          "specifiers": [
+            "re"
+          ]
+        },
+        {
+          "source": "shutil",
+          "specifiers": [
+            "shutil"
+          ]
+        },
+        {
+          "source": "signal",
+          "specifiers": [
+            "signal"
+          ]
+        },
+        {
+          "source": "subprocess",
+          "specifiers": [
+            "subprocess"
+          ]
+        },
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        },
+        {
+          "source": "tempfile",
+          "specifiers": [
+            "tempfile"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "urllib.error",
+          "specifiers": [
+            "urllib.error"
+          ]
+        },
+        {
+          "source": "urllib.parse",
+          "specifiers": [
+            "urllib.parse"
+          ]
+        },
+        {
+          "source": "urllib.request",
+          "specifiers": [
+            "urllib.request"
+          ]
+        },
+        {
+          "source": "uuid",
+          "specifiers": [
+            "uuid"
+          ]
+        },
+        {
+          "source": "xml.etree.ElementTree",
+          "specifiers": [
+            "ET"
+          ]
+        }
+      ],
+      "exports": [
+        "Incomplete",
+        "Failed",
+        "need",
+        "require",
+        "sha",
+        "safe_path",
+        "load_json",
+        "timestamp",
+        "fresh",
+        "real_text",
+        "number",
+        "source_files",
+        "fingerprint",
+        "command",
+        "NoRedirect",
+        "valid_url",
+        "read_http_body",
+        "http",
+        "json_response",
+        "smoke",
+        "evidence",
+        "artifact",
+        "implemented_python",
+        "validate_junit",
+        "run_tests",
+        "docker_args",
+        "compose_args",
+        "day1",
+        "day2",
+        "day3",
+        "load_yaml",
+        "validate_rule_tests",
+        "verify_rca_component",
+        "day4",
+        "audit_events",
+        "day5",
+        "eval_report",
+        "cost_report",
+        "day6",
+        "starter",
+        "setup",
+        "Parser",
+        "positive",
+        "parser",
+        "main"
+      ],
+      "totalLines": 935,
+      "hasStructuralAnalysis": true
+    },
+    "security/README.md": {
+      "filePath": "security/README.md",
+      "contentHash": "ac235f6780db3dd2358b26b35d0437ce9617216743d0dd75d23ee606378632f6",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 8,
+      "hasStructuralAnalysis": true
+    },
+    "security/promptfooconfig.yaml": {
+      "filePath": "security/promptfooconfig.yaml",
+      "contentHash": "11ad20b6c2b04edb16170b813742dce94f2ba4a01b3ed5fe6f6b65ff7f1a2f01",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 33,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_verify.py": {
+      "filePath": "tests/test_verify.py",
+      "contentHash": "e6c2bfcd89dcdb93933cf3526c97d101d088c5760cbb55b3db3adb167140481b",
+      "functions": [
+        {
+          "name": "now",
+          "params": [
+            "offset"
+          ],
+          "exported": true,
+          "lineCount": 2
+        }
+      ],
+      "classes": [
+        {
+          "name": "VerifierCase",
+          "methods": [
+            "setUp",
+            "write",
+            "envelope",
+            "ref",
+            "cli"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 40
+        },
+        {
+          "name": "CommonTests",
+          "methods": [
+            "test_default_starter_is_not_runtime",
+            "test_all_unimplemented_days_incomplete",
+            "test_invalid_arguments_incomplete",
+            "test_missing_starter_artifact_incomplete",
+            "test_dirty_content_changes_fingerprint_without_git",
+            "test_digest_stable_across_cache_and_evidence",
+            "test_stale_dirty_and_future_evidence_rejected",
+            "test_schema_and_day_validated",
+            "test_duplicate_json_and_nan_rejected",
+            "test_missing_empty_hash_and_path_escape_rejected",
+            "test_symlink_escape_rejected",
+            "test_json_commands_are_never_executed",
+            "test_placeholder_python_comments_do_not_pass",
+            "test_missing_tool_and_timeout_are_incomplete",
+            "test_junit_empty_failure_skipped_missing_case_rejected",
+            "test_junit_valid_parametrized_cases",
+            "test_passed_text_cannot_override_test_exit",
+            "test_day1_without_worker_cannot_pass_by_default",
+            "test_day1_extended_missing_worker_is_incomplete",
+            "test_fixture_can_never_complete_milestone",
+            "test_composite_preserves_failure_and_incomplete",
+            "test_source_change_during_checks_is_incomplete",
+            "test_wrappers_portable_outside_repo",
+            "test_wrapper_missing_python_is_incomplete"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 173
+        },
+        {
+          "name": "SmokeTests",
+          "methods": [
+            "responses",
+            "test_sync_smoke",
+            "test_async_smoke_polls_fresh_document",
+            "test_async_required_rejects_sync",
+            "test_polling_is_bounded_and_does_not_accept_old_id",
+            "test_failed_worker_stops_poll",
+            "test_malformed_empty_chat_and_comment_metrics_fail",
+            "test_unavailable_endpoint_is_incomplete"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 71
+        },
+        {
+          "name": "DomainTests",
+          "methods": [
+            "reports",
+            "test_ollama_is_real_and_measured_zero_provider_cost_valid",
+            "test_zero_cost_without_resource_measurement_rejected",
+            "test_fake_real_provider_rejected",
+            "test_fixture_report_can_validate_but_is_labelled",
+            "test_empty_duplicate_uncovered_eval_rejected",
+            "test_failed_high_eval_is_fail",
+            "test_cost_mismatch_nan_duplicate_and_budget",
+            "test_audit_timestamp_run_binding_and_decisions",
+            "test_local_ci_does_not_call_github",
+            "test_ci_policy_exit_cannot_be_hidden_by_passed_text"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 99
+        },
+        {
+          "name": "McpContractTests",
+          "methods": [
+            "mcp",
+            "test_live_backend_maps_to_real_envelope",
+            "test_fixture_sdk_cannot_be_live_proof",
+            "test_no_calls_or_protocol_mismatch_fails",
+            "test_sdk_missing_dependency_and_skips_are_incomplete"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 50
+        },
+        {
+          "name": "TelemetryTests",
+          "methods": [
+            "telemetry",
+            "test_empty_rule_groups_or_tests_not_success",
+            "test_rule_test_requires_assertion_not_only_input",
+            "test_live_timestamped_telemetry_matches",
+            "test_stale_or_mismatched_telemetry_not_accepted",
+            "test_promtool_nonzero_not_overridden_by_success_text"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 48
+        },
+        {
+          "name": "ExtraGuards",
+          "methods": [
+            "test_known_dummy_artifacts_rejected_even_with_valid_hash",
+            "test_http_read_total_time_and_size_are_bounded",
+            "test_detailed_junit_not_pass_string_is_required"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 19
+        },
+        {
+          "name": "RestoredProjectScopeTests",
+          "methods": [
+            "test_defaults_require_github_and_http_signature",
+            "test_one_rca_or_one_panel_cannot_pass_day4",
+            "test_all_three_rca_are_checked",
+            "test_automated_subset_cannot_complete_project"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 36
+        }
+      ],
+      "imports": [
+        {
+          "source": "contextlib",
+          "specifiers": [
+            "contextlib"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "dt"
+          ]
+        },
+        {
+          "source": "importlib.util",
+          "specifiers": [
+            "importlib.util"
+          ]
+        },
+        {
+          "source": "io",
+          "specifiers": [
+            "io"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "shutil",
+          "specifiers": [
+            "shutil"
+          ]
+        },
+        {
+          "source": "subprocess",
+          "specifiers": [
+            "subprocess"
+          ]
+        },
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        },
+        {
+          "source": "tempfile",
+          "specifiers": [
+            "tempfile"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "unittest",
+          "specifiers": [
+            "unittest"
+          ]
+        },
+        {
+          "source": "unittest.mock",
+          "specifiers": [
+            "patch"
+          ]
+        }
+      ],
+      "exports": [
+        "now",
+        "VerifierCase",
+        "CommonTests",
+        "SmokeTests",
+        "DomainTests",
+        "McpContractTests",
+        "TelemetryTests",
+        "ExtraGuards",
+        "RestoredProjectScopeTests"
+      ],
+      "totalLines": 580,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_verify_hosts.py": {
+      "filePath": "tests/test_verify_hosts.py",
+      "contentHash": "c4bd2e168751b55ab145ada2c06114278c6a546b4ea9c4dcfc4f579dc8a7c203",
+      "functions": [
+        {
+          "name": "module",
+          "params": [
+            "name",
+            "path"
+          ],
+          "exported": true,
+          "lineCount": 5
+        }
+      ],
+      "classes": [
+        {
+          "name": "HostTests",
+          "methods": [
+            "setUp",
+            "write",
+            "config",
+            "test_helper_three_hosts_same_backend_unicode_paths",
+            "test_helper_rejects_unknown_host",
+            "test_cross_host_format_rejected",
+            "test_remote_host_fields",
+            "test_duplicate_json_rejected",
+            "test_missing_or_duplicate_section_rejected",
+            "test_length_limit_and_todo_not_milestone",
+            "test_config_cannot_escape_repo",
+            "test_malformed_transport_rejected",
+            "test_host_artifacts_change_fingerprint",
+            "test_external_config_symlink_rejected"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 108
+        }
+      ],
+      "imports": [
+        {
+          "source": "importlib.util",
+          "specifiers": [
+            "importlib.util"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "shutil",
+          "specifiers": [
+            "shutil"
+          ]
+        },
+        {
+          "source": "subprocess",
+          "specifiers": [
+            "subprocess"
+          ]
+        },
+        {
+          "source": "tempfile",
+          "specifiers": [
+            "tempfile"
+          ]
+        },
+        {
+          "source": "unittest",
+          "specifiers": [
+            "unittest"
+          ]
+        }
+      ],
+      "exports": [
+        "module",
+        "HostTests"
+      ],
+      "totalLines": 133,
+      "hasStructuralAnalysis": true
+    },
+    "tools/agent/antigravity-rule.md": {
+      "filePath": "tools/agent/antigravity-rule.md",
+      "contentHash": "b4f96c171969d4adeb6056876d5f82663ad91dc366756de2d8059deeb7436730",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 9,
+      "hasStructuralAnalysis": true
+    },
+    "tools/mcp/README.md": {
+      "filePath": "tools/mcp/README.md",
+      "contentHash": "8932b1983e7d82da544c0556575cbf74cb00de559710d20d16b046fc3a81ec17",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 105,
+      "hasStructuralAnalysis": true
+    },
+    "tools/mcp/host-config.mjs": {
+      "filePath": "tools/mcp/host-config.mjs",
+      "contentHash": "545429e1db3b09d12495bab849119401ecd2cb7534d987383857e9edd1a4999e",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:url",
+          "specifiers": [
+            "fileURLToPath"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 35,
+      "hasStructuralAnalysis": true
+    },
+    "tools/mcp/manifest.json": {
+      "filePath": "tools/mcp/manifest.json",
+      "contentHash": "639d24b6db30787358dc6259825fccb472ba3a00b49fe567acc325887c6deef8",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 106,
+      "hasStructuralAnalysis": true
+    },
+    "tools/mcp/package.json": {
+      "filePath": "tools/mcp/package.json",
+      "contentHash": "08ce79fd2501cfb70481fe06baa14f7824f4c7b9abb14489739c65d4b3f023d4",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 22,
+      "hasStructuralAnalysis": true
+    },
+    "tools/mcp/smoke.mjs": {
+      "filePath": "tools/mcp/smoke.mjs",
+      "contentHash": "cfd0d71f665c0cf504684f95cdb81e7c012cd2d86ff4a9528a1ff19c0511ed11",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:assert/strict",
+          "specifiers": [
+            "assert"
+          ]
+        },
+        {
+          "source": "./test/client.mjs",
+          "specifiers": [
+            "connectClient"
+          ]
+        },
+        {
+          "source": "./test/fixture.mjs",
+          "specifiers": [
+            "fixture",
+            "CANARY"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 66,
+      "hasStructuralAnalysis": true
+    },
+    "tools/mcp/src/core.mjs": {
+      "filePath": "tools/mcp/src/core.mjs",
+      "contentHash": "c8b21bc5256a72fd6ff0644ec9d2200110e92423fc7b8e70f05e29ba880773b9",
+      "functions": [
+        {
+          "name": "fail",
+          "params": [
+            "code"
+          ],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "loopbackOrigin",
+          "params": [
+            "raw"
+          ],
+          "exported": true,
+          "lineCount": 11
+        },
+        {
+          "name": "integer",
+          "params": [
+            "raw",
+            "fallback",
+            "max",
+            "code"
+          ],
+          "exported": false,
+          "lineCount": 5
+        },
+        {
+          "name": "readConfig",
+          "params": [],
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "getJson",
+          "params": [
+            "config",
+            "route",
+            "query",
+            "signal"
+          ],
+          "exported": true,
+          "lineCount": 64
+        },
+        {
+          "name": "nonnegative",
+          "params": [],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "result",
+          "params": [],
+          "exported": false,
+          "lineCount": 1
+        },
+        {
+          "name": "createService",
+          "params": [
+            "config"
+          ],
+          "exported": true,
+          "lineCount": 49
+        }
+      ],
+      "classes": [
+        {
+          "name": "SafeError",
+          "methods": [
+            "constructor"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "imports": [
+        {
+          "source": "node:http",
+          "specifiers": [
+            "http"
+          ]
+        }
+      ],
+      "exports": [
+        "TOOL_NAMES",
+        "QUERIES",
+        "SafeError",
+        "loopbackOrigin",
+        "readConfig",
+        "getJson",
+        "createService"
+      ],
+      "totalLines": 163,
+      "hasStructuralAnalysis": true
+    },
+    "tools/mcp/src/server.mjs": {
+      "filePath": "tools/mcp/src/server.mjs",
+      "contentHash": "053a1b89e7c59b366b137c15c742244755712f1a948e9bc4fc24398dd44c4451",
+      "functions": [
+        {
+          "name": "buildServer",
+          "params": [
+            "config"
+          ],
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@modelcontextprotocol/server",
+          "specifiers": [
+            "McpServer"
+          ]
+        },
+        {
+          "source": "@modelcontextprotocol/server/stdio",
+          "specifiers": [
+            "serveStdio",
+            "StdioServerTransport"
+          ]
+        },
+        {
+          "source": "zod",
+          "specifiers": [
+            "z"
+          ]
+        },
+        {
+          "source": "./core.mjs",
+          "specifiers": [
+            "createService",
+            "readConfig",
+            "SafeError"
+          ]
+        }
+      ],
+      "exports": [
+        "buildServer"
+      ],
+      "totalLines": 62,
+      "hasStructuralAnalysis": true
+    },
+    "tools/mcp/test/client.mjs": {
+      "filePath": "tools/mcp/test/client.mjs",
+      "contentHash": "83847768da5df7200a287c0e7da2d97aabe22c0cbd4225f71e2172de9fac1a5c",
+      "functions": [
+        {
+          "name": "connectClient",
+          "params": [
+            "mode"
+          ],
+          "exported": true,
+          "lineCount": 32
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@modelcontextprotocol/client",
+          "specifiers": [
+            "Client"
+          ]
+        },
+        {
+          "source": "@modelcontextprotocol/client/stdio",
+          "specifiers": [
+            "StdioClientTransport"
+          ]
+        },
+        {
+          "source": "@modelcontextprotocol/sdk/client/index.js",
+          "specifiers": [
+            "LegacyClient"
+          ]
+        },
+        {
+          "source": "@modelcontextprotocol/sdk/client/stdio.js",
+          "specifiers": [
+            "LegacyTransport"
+          ]
+        },
+        {
+          "source": "node:url",
+          "specifiers": [
+            "fileURLToPath"
+          ]
+        }
+      ],
+      "exports": [
+        "connectClient"
+      ],
+      "totalLines": 39,
+      "hasStructuralAnalysis": true
+    },
+    "tools/mcp/test/core.test.mjs": {
+      "filePath": "tools/mcp/test/core.test.mjs",
+      "contentHash": "7b097581db3ee2949448deedf166334db283f9d8fc6bd8f9efba6f3ca381c868",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:test",
+          "specifiers": [
+            "test"
+          ]
+        },
+        {
+          "source": "node:assert/strict",
+          "specifiers": [
+            "assert"
+          ]
+        },
+        {
+          "source": "../src/core.mjs",
+          "specifiers": [
+            "readConfig",
+            "loopbackOrigin",
+            "getJson",
+            "createService",
+            "QUERIES"
+          ]
+        },
+        {
+          "source": "./fixture.mjs",
+          "specifiers": [
+            "fixture",
+            "CANARY"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 110,
+      "hasStructuralAnalysis": true
+    },
+    "tools/mcp/test/fixture.mjs": {
+      "filePath": "tools/mcp/test/fixture.mjs",
+      "contentHash": "2236b94321439b8333c652eb547f41ee5d074dcfcf1b023eca9a54038e02e587",
+      "functions": [
+        {
+          "name": "fixture",
+          "params": [
+            "handler"
+          ],
+          "exported": true,
+          "lineCount": 24
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:http",
+          "specifiers": [
+            "http"
+          ]
+        }
+      ],
+      "exports": [
+        "CANARY",
+        "fixture"
+      ],
+      "totalLines": 27,
+      "hasStructuralAnalysis": true
+    },
+    "tools/mcp/test/server.test.mjs": {
+      "filePath": "tools/mcp/test/server.test.mjs",
+      "contentHash": "d8c9590ef377d0081a55e08ca97e903b65103db07fc578b7e605eae40e8e0847",
+      "functions": [
+        {
+          "name": "denied",
+          "params": [
+            "client",
+            "name",
+            "args"
+          ],
+          "exported": false,
+          "lineCount": 11
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "node:test",
+          "specifiers": [
+            "test"
+          ]
+        },
+        {
+          "source": "node:assert/strict",
+          "specifiers": [
+            "assert"
+          ]
+        },
+        {
+          "source": "node:child_process",
+          "specifiers": [
+            "spawn"
+          ]
+        },
+        {
+          "source": "node:url",
+          "specifiers": [
+            "fileURLToPath"
+          ]
+        },
+        {
+          "source": "./fixture.mjs",
+          "specifiers": [
+            "fixture",
+            "CANARY"
+          ]
+        },
+        {
+          "source": "./client.mjs",
+          "specifiers": [
+            "connectClient"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 69,
+      "hasStructuralAnalysis": true
+    },
+    "web/.dockerignore": {
+      "filePath": "web/.dockerignore",
+      "contentHash": "c3d106598fbc03a7f484fff4450b6ff9804a5743c801409ca497b71edb8aaa2c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 8,
+      "hasStructuralAnalysis": false
+    },
+    "web/Dockerfile": {
+      "filePath": "web/Dockerfile",
+      "contentHash": "7a49d37201c915cc76f461c2ea8b53113b0ecace05533c97fbb383223c18f4e9",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 35,
+      "hasStructuralAnalysis": true
+    },
+    "web/app/api/documents/route.ts": {
+      "filePath": "web/app/api/documents/route.ts",
+      "contentHash": "f3a175aee3a3699bc25fd20e19ebd429d1de188132ac3baf1101fd0d69ef87e2",
+      "functions": [
+        {
+          "name": "GET",
+          "params": [],
+          "exported": true,
+          "lineCount": 8
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@/lib/api",
+          "specifiers": [
+            "listDocuments"
+          ]
+        }
+      ],
+      "exports": [
+        "GET"
+      ],
+      "totalLines": 12,
+      "hasStructuralAnalysis": true
+    },
+    "web/app/api/health/route.ts": {
+      "filePath": "web/app/api/health/route.ts",
+      "contentHash": "16b6749a98d46004d0475cf5996b9e5f89cd768dddbce3e7cff8b1008ec59fef",
+      "functions": [
+        {
+          "name": "GET",
+          "params": [],
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "GET"
+      ],
+      "totalLines": 5,
+      "hasStructuralAnalysis": true
+    },
+    "web/app/api/proxy/route.ts": {
+      "filePath": "web/app/api/proxy/route.ts",
+      "contentHash": "93a71d13cdfa015e090c55e83e978e166f4990eeb45217b1ee204c5bf8eec193",
+      "functions": [
+        {
+          "name": "POST",
+          "params": [
+            "req"
+          ],
+          "exported": true,
+          "lineCount": 30
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@/lib/api",
+          "specifiers": [
+            "API_URL"
+          ]
+        }
+      ],
+      "exports": [
+        "POST"
+      ],
+      "totalLines": 33,
+      "hasStructuralAnalysis": true
+    },
+    "web/app/globals.css": {
+      "filePath": "web/app/globals.css",
+      "contentHash": "914b0b8cd4a821bd07d406e6c3f5d709b95aff0bb2646abf9083790be4a8a5fe",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 201,
+      "hasStructuralAnalysis": false
+    },
+    "web/app/layout.tsx": {
+      "filePath": "web/app/layout.tsx",
+      "contentHash": "0e0288ef1525903fadc8da2b12c58fd5d80693cd070bddc83e7ea173e5126458",
+      "functions": [
+        {
+          "name": "RootLayout",
+          "params": [
+            "{\r\n  children,\r\n}"
+          ],
+          "exported": true,
+          "lineCount": 11
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "next",
+          "specifiers": [
+            "Metadata"
+          ]
+        },
+        {
+          "source": "./globals.css",
+          "specifiers": []
+        }
+      ],
+      "exports": [
+        "metadata",
+        "RootLayout"
+      ],
+      "totalLines": 20,
+      "hasStructuralAnalysis": true
+    },
+    "web/app/page.tsx": {
+      "filePath": "web/app/page.tsx",
+      "contentHash": "8d59d0724fb02a81d8015208bcd89c8b843be89f4f74d2ef4a711fa211fe6a7a",
+      "functions": [
+        {
+          "name": "Home",
+          "params": [],
+          "exported": true,
+          "lineCount": 29
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "@/components/UploadPanel",
+          "specifiers": [
+            "UploadPanel"
+          ]
+        },
+        {
+          "source": "@/components/ChatPanel",
+          "specifiers": [
+            "ChatPanel"
+          ]
+        },
+        {
+          "source": "@/lib/api",
+          "specifiers": [
+            "listDocuments"
+          ]
+        },
+        {
+          "source": "@/lib/api",
+          "specifiers": [
+            "Document"
+          ]
+        }
+      ],
+      "exports": [
+        "dynamic",
+        "Home"
+      ],
+      "totalLines": 37,
+      "hasStructuralAnalysis": true
+    },
+    "web/components/ChatPanel.tsx": {
+      "filePath": "web/components/ChatPanel.tsx",
+      "contentHash": "487c55d22fd77456d3dcf737bb0bb874424d7bf2e2689151b76fd73ba880868b",
+      "functions": [
+        {
+          "name": "ChatPanel",
+          "params": [],
+          "exported": true,
+          "lineCount": 55
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "useState"
+          ]
+        },
+        {
+          "source": "@/lib/api",
+          "specifiers": [
+            "ChatResult"
+          ]
+        }
+      ],
+      "exports": [
+        "ChatPanel"
+      ],
+      "totalLines": 61,
+      "hasStructuralAnalysis": true
+    },
+    "web/components/UploadPanel.tsx": {
+      "filePath": "web/components/UploadPanel.tsx",
+      "contentHash": "2d39b4a6f0e6250b4bf74f905ed589a318ab7e45609c95802cf0ed6444b48dbc",
+      "functions": [
+        {
+          "name": "UploadPanel",
+          "params": [
+            "{ initial, initialError = \"\" }"
+          ],
+          "exported": true,
+          "lineCount": 101
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "react",
+          "specifiers": [
+            "useEffect",
+            "useState"
+          ]
+        },
+        {
+          "source": "@/lib/api",
+          "specifiers": [
+            "Document"
+          ]
+        }
+      ],
+      "exports": [
+        "UploadPanel"
+      ],
+      "totalLines": 107,
+      "hasStructuralAnalysis": true
+    },
+    "web/lib/api.ts": {
+      "filePath": "web/lib/api.ts",
+      "contentHash": "c1e5ab22c890532fc3e5d9b43b3069896cc77220338e1d70900aa285732ee9f3",
+      "functions": [
+        {
+          "name": "listDocuments",
+          "params": [],
+          "returnType": "Promise<Document[]>",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "askQuestion",
+          "params": [
+            "question"
+          ],
+          "returnType": "Promise<ChatResult>",
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [
+        "listDocuments",
+        "askQuestion",
+        "API_URL"
+      ],
+      "totalLines": 42,
+      "hasStructuralAnalysis": true
+    },
+    "web/next-env.d.ts": {
+      "filePath": "web/next-env.d.ts",
+      "contentHash": "9a964c445118d72402f630b029a9f48cb1b5682c49df14ec08e66513096929ec",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "web/next.config.js": {
+      "filePath": "web/next.config.js",
+      "contentHash": "d2e8e5a167852c951aef6abafc6acf58a2bf94f3aa748cde21020e08b2468a7a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "web/package.json": {
+      "filePath": "web/package.json",
+      "contentHash": "be32ef16c14904a68d91516ce7cbe2d8361ffb4f4aef29275f10249ca1e0a806",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 22,
+      "hasStructuralAnalysis": true
+    },
+    "web/public/.gitkeep": {
+      "filePath": "web/public/.gitkeep",
+      "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": false
+    },
+    "web/tsconfig.json": {
+      "filePath": "web/tsconfig.json",
+      "contentHash": "51806677140d87004c7d81483b19a7f269b562e8cb908e78c7ee90820d41c392",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 42,
+      "hasStructuralAnalysis": true
+    }
+  }
+}
