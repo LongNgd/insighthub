@@ -47,3 +47,43 @@ Refactor InsideHub từ ingression đồng bộ sang sử lý nền để có 5 
 - Reviewed PLAN trước khi sửa file.
 - User approved PLAN trước khi triển khai.
 - Đối chiếu diff và thực hiện các kiểm tra phù hợp sau thay đổi.
+
+## Prompt 2 - Update AGENTS.md
+
+**Host**: ChatGPT-Codex
+**Version / Model / Auth mode**: GPT-5.6 Terra
+**Context / Evidence**: `AGENTS.md`, `api/app/services/queue.py`, `ingestion-worker/worker.py`, `api/app/routers/documents.py`, `docker-compose.yml`, diff, and the six-section/60-line validation.
+**Time**: 2026-09-20 11:08:36 +07:00
+
+**Prompt**:
+
+## 1. Mục tiêu (Goal)
+
+Cập nhật AGENTS.md theo các thay đổi mới nhất của project
+
+## 2. Ràng buộc (Constraints - PHẢI TUÂN THỦ)
+
+- Chỉ thay đổi file AGENTS.md, không thay đổi các file khác
+
+## 3. Tiêu chí thành công (Acceptance Criteria)
+
+- AGENTS.md được cập nhật đúng theo trạng thái mới nhất của project, không có các thông tin lỗi thời
+
+## 4. Ví dụ pattern tham chiếu (Reference)
+
+## 5. Quy trình thực hiện (Process / Output Expected)
+
+- Plan trình bày các thông tin sẽ cập nhật
+- Chỉ thực hiện thay đổi khi tôi APPROVE plan
+
+**Why it worked**:
+
+- Prompt giới hạn thay đổi trong `AGENTS.md`, bảo toàn các file runtime.
+- Yêu cầu PLAN và APPROVE tạo điểm kiểm soát trước khi sửa context dự án.
+- Tiêu chí thành công tập trung vào việc loại bỏ mô tả sync/3-service đã lỗi thời.
+
+**What I changed**:
+
+- Đối chiếu `AGENTS.md` với queue adapter, worker, router và Docker Compose.
+- Trình bày PLAN, sau đó chỉ sửa `AGENTS.md` khi user APPROVE.
+- Kiểm tra file giữ đúng 6 section, 60 dòng và diff không có lỗi whitespace.
