@@ -15,6 +15,7 @@ from app.core.errors import ServiceError
 from app.core.metrics import documents_total, http_requests_total
 from app.core.upload_limit import UploadLimitMiddleware
 from app.routers import chat, documents, health
+from app.services.queue import close_queue
 
 settings = get_settings()
 logging.basicConfig(level=settings.log_level)
@@ -29,6 +30,7 @@ async def lifespan(app: FastAPI):
         await run_in_threadpool(initialize_database)
         yield
     finally:
+        await close_queue()
         await run_in_threadpool(close_pool)
 
 

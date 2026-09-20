@@ -6,7 +6,8 @@ WORKDIR /app
 
 FROM base AS deps
 COPY requirements.txt .
-RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt \
+    && pip install --no-cache-dir arq==0.26.3 redis[hiredis]==5.3.1 PyJWT==2.14.0 hiredis==3.3.0
 
 FROM base AS runtime
 # Non-root user

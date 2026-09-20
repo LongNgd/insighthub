@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     provider_timeout_seconds: float = Field(
         default=60, gt=0, le=300, allow_inf_nan=False
     )
+    redis_url: str = Field(default="redis://redis:6379/0", repr=False)
+    worker_max_retries: int = Field(default=3, ge=1, le=3)
     embedding_batch_size: int = Field(default=32, ge=1, le=100)
     chunk_size: int = Field(default=800, ge=2, le=8000)
     chunk_overlap: int = Field(default=100, ge=0)
