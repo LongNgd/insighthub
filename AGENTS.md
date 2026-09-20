@@ -19,6 +19,7 @@ Project context cho Day 1. Chọn một host: Claude Code, ChatGPT-Codex hoặc 
 - Hàm queue/worker phải có type hints, retry bounded và tên phản ánh side effect; giữ transaction/row-lock/savepoint pattern trong `process_document` thay vì nhân bản pipeline.
 
 ## Commands
+- Chạy mọi lệnh terminal qua WSL, tại thư mục gốc dự án. Trước khi chạy lệnh trong mỗi phiên shell, kích hoạt venv hiện có bằng `source .venv/bin/activate`. Không tự tạo lại venv hoặc dùng Python ngoài venv.
 - make up; make down (giữ volume).
 - make test-backend; make test-verifiers; make test-mcp; make smoke.
 - Baseline: `docker compose config --quiet`; `docker compose up --build -d --wait`; `docker compose ps`; `docker compose logs --tail=100 api postgres`.
