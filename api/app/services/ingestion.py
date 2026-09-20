@@ -1,4 +1,4 @@
-"""Starter ingestion is synchronous. Day 1 students still implement the queue/worker."""
+"""Atomic ingestion pipeline executed by the background worker."""
 
 import hashlib
 import io
@@ -11,6 +11,7 @@ from app.core.errors import (
     DocumentConflict,
     DocumentNotFound,
     InvalidDocument,
+    ProviderError,
     ServiceError,
 )
 from app.core.index import check_schema, ensure_index_identity
@@ -69,7 +70,13 @@ def _pipeline_id() -> str:
     ).hexdigest()
 
 
-def process_document(document_id: int, filename: str, content: bytes) -> int:
+def process_document(
+    document_id: int,
+    filename: str,
+    content: bytes,
+    *,
+    retryable_failure: bool = False,
+) -> int:
     """Same ID + bytes + pipeline is a no-op after success, including concurrent retries.
 
     A row lock spans the synchronous provider calls. A savepoint atomically replaces
@@ -150,11 +157,18 @@ def process_document(document_id: int, filename: str, content: bytes) -> int:
                 conn.execute(
                     "DELETE FROM chunks WHERE document_id = %s", (document_id,)
                 )
-                conn.execute(
-                    "UPDATE documents SET status = 'failed', chunk_count = 0, "
-                    "embedding_identity_id = NULL, error_code = %s WHERE id = %s",
-                    (failure.code, document_id),
-                )
+                if isinstance(failure, ProviderError) and retryable_failure:
+                    conn.execute(
+                        "UPDATE documents SET status = 'pending', chunk_count = 0, "
+                        "embedding_identity_id = NULL, error_code = NULL WHERE id = %s",
+                        (document_id,),
+                    )
+                else:
+                    conn.execute(
+                        "UPDATE documents SET status = 'failed', chunk_count = 0, "
+                        "embedding_identity_id = NULL, error_code = %s WHERE id = %s",
+                        (failure.code, document_id),
+                    )
     if failure is not None:
         ingestion_errors_total.inc()
         logger.warning(
@@ -162,8 +176,3 @@ def process_document(document_id: int, filename: str, content: bytes) -> int:
         )
         raise failure from None
     return chunk_count
-
-
-def ingest_document_sync(document_id: int, filename: str, content: bytes) -> int:
-    # Day 1: replace the caller with enqueueing, preserving process_document's contract.
-    return process_document(document_id, filename, content)

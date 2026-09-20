@@ -2,7 +2,7 @@ import asyncio
 import io
 import threading
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 from fastapi import HTTPException, UploadFile
@@ -62,10 +62,25 @@ class HttpTests(unittest.TestCase):
 
         stream = GuardedFile(b"12345")
         with configured(max_upload_bytes=4), self.assertRaises(HTTPException) as raised:
-            upload_document(UploadFile(filename="test.txt", file=stream))
+            asyncio.run(upload_document(UploadFile(filename="test.txt", file=stream)))
         self.assertEqual(raised.exception.status_code, 413)
         self.assertEqual(stream.requested, 5)
         self.assertTrue(stream.closed)
+
+    def test_upload_enqueues_and_returns_pending_202(self):
+        with (
+            patch("app.routers.documents._create_pending_document", return_value=7),
+            patch(
+                "app.routers.documents.enqueue_document", new_callable=AsyncMock
+            ) as enqueue,
+        ):
+            response = TestClient(app).post(
+                "/documents", files={"file": ("queued.txt", b"queued content")}
+            )
+        self.assertEqual(response.status_code, 202, response.text)
+        self.assertEqual(response.json()["status"], "pending")
+        self.assertEqual(response.json()["chunk_count"], 0)
+        enqueue.assert_awaited_once_with(7, "queued.txt", b"queued content")
 
     def test_invalid_documents_and_blank_pdf_are_422_errors(self):
         writer, output = PdfWriter(), io.BytesIO()
