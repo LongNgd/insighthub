@@ -1,0 +1,12 @@
+  global:
+    scrape_interval: 5s
+    scrape_timeout: 3s
+
+  scrape_configs:
+    - job_name: prometheus
+      static_configs:
+        - targets: ["localhost:9090"]
+
+    - job_name: sample-target
+      static_configs:
+        - targets: ["sample-target:9100"]

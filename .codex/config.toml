@@ -1,0 +1,6 @@
+[mcp_servers.kubernetes]
+command = "npx"
+args = ["-y", "kubernetes-mcp-server"]
+
+[mcp_servers.kubernetes.env]
+KUBECONFIG = "C:\\Users\\longn\\.kube\\mcp\\insighthub-mcp.yaml"
