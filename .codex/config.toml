@@ -4,3 +4,8 @@ args = ["-y", "kubernetes-mcp-server"]
 
 [mcp_servers.kubernetes.env]
 KUBECONFIG = "C:\\Users\\longn\\.kube\\mcp\\insighthub-mcp.yaml"
+
+[mcp_servers.filesystem]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "."]
+enabled = true
