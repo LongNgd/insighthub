@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -14,9 +13,6 @@ from app.core.db import close_pool, initialize_database
 from app.core.errors import DocumentNotFound, ProviderError, ServiceError
 from app.services.ingestion import process_document
 
-logger = logging.getLogger("insighthub.ingestion_worker")
-
-
 def _log(event: str, document_id: int, status: str, attempt: int, error_code: str | None = None) -> None:
     record: dict[str, Any] = {
         "event": event,
@@ -27,7 +23,7 @@ def _log(event: str, document_id: int, status: str, attempt: int, error_code: st
     }
     if error_code is not None:
         record["error_code"] = error_code
-    logger.info(json.dumps(record, ensure_ascii=False))
+    print(json.dumps(record, ensure_ascii=False), flush=True)
 
 
 async def startup(_: dict[str, Any]) -> None:
