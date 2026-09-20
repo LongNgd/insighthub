@@ -43,15 +43,23 @@ async def process_document_job(
 ) -> int:
     """Process once; transient provider errors receive at most three attempts."""
     attempt = int(ctx.get("job_try", 1))
+    final_attempt = attempt >= get_settings().worker_max_retries
     try:
-        chunk_count = await asyncio.to_thread(process_document, document_id, filename, content)
+        chunk_count = await asyncio.to_thread(
+            process_document,
+            document_id,
+            filename,
+            content,
+            retryable_failure=not final_attempt,
+        )
     except DocumentNotFound:
         _log("ingestion_deleted", document_id, "deleted", attempt)
         return 0
     except ProviderError as exc:
-        _log("ingestion_failed", document_id, "failed", attempt, exc.code)
-        if attempt < get_settings().worker_max_retries:
+        if not final_attempt:
+            _log("ingestion_retry_scheduled", document_id, "pending", attempt, exc.code)
             raise Retry(defer=2 ** (attempt - 1)) from None
+        _log("ingestion_failed", document_id, "failed", attempt, exc.code)
         raise
     except ServiceError as exc:
         _log("ingestion_failed", document_id, "failed", attempt, exc.code)

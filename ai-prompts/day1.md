@@ -87,3 +87,61 @@ Cập nhật AGENTS.md theo các thay đổi mới nhất của project
 - Đối chiếu `AGENTS.md` với queue adapter, worker, router và Docker Compose.
 - Trình bày PLAN, sau đó chỉ sửa `AGENTS.md` khi user APPROVE.
 - Kiểm tra file giữ đúng 6 section, 60 dòng và diff không có lỗi whitespace.
+
+## Prompt 3 - Controlled ingestion retry
+
+**Host**: ChatGPT-Codex
+**Version / Model / Auth mode**: GPT-5.6 Terra
+**Context / Evidence**: `AGENTS.md`, `api/app/services/ingestion.py`, `ingestion-worker/worker.py`, `api/tests/test_integration.py`, diff, `make test-backend` (51 tests pass), and Compose startup with 5 services.
+**Time**: 2026-09-20 15:19:10 +07:00
+
+**Prompt**:
+
+## 1. Mục tiêu (Goal)
+
+Hoàn thiện retry tự động cho ingestion-worker khi embedding provider lỗi tạm thời.
+
+Worker retry tối đa 3 lần với exponential backoff. Document giữ `pending` khi còn lượt retry; thành `ready` nếu thành công, hoặc `failed` khi hết lượt.
+
+## 2. Ràng buộc (Constraints - PHẢI TUÂN THỦ)
+
+- Không đổi schema DB, API hoặc thêm state ngoài `pending|ready|failed`.
+- Không thêm endpoint retry; API chỉ enqueue và trả `202`.
+- Chỉ retry `ProviderError`; không retry lỗi file, conflict, schema hoặc document đã xóa.
+- Không retry quá 3 lần, không tạo chunks trùng hoặc dữ liệu partial.
+- Giữ transaction, row lock và idempotency hiện có trong `process_document`.
+- Log JSON có `event`, `document_id`, `status`, `attempt`, `timestamp`; không log secret hay nội dung tài liệu.
+- Không xóa hoặc giảm assertion test.
+
+## 3. Tiêu chí thành công (Acceptance Criteria)
+
+- Lỗi provider lần đầu, thành công lần sau: document `pending` rồi `ready`, chunks không trùng.
+- Lỗi provider cả 3 lần: document `failed`, `chunk_count = 0`, không còn chunks partial.
+- Lỗi không retryable không được schedule lại.
+- Có test cho retry thành công, retry hết lượt và lỗi không retryable.
+- `make test-backend` pass.
+
+## 4. Ví dụ pattern tham chiếu (Reference)
+
+- `api/app/services/ingestion.py`
+- `ingestion-worker/worker.py`
+- `api/tests/test_integration.py`
+- `AGENTS.md`
+
+## 5. Quy trình thực hiện (Process / Output Expected)
+
+- Đọc các file tham chiếu và trình bày PLAN theo từng file.
+- ĐỢI TÔI APPROVE PLAN rồi mới sửa file.
+- Sau khi hoàn tất, chạy test, kiểm tra diff và báo cáo thay đổi cùng kết quả.
+
+**Why it worked**:
+
+- Prompt xác định rõ lỗi được retry và giới hạn ba attempt.
+- Giữ state machine `pending|ready|failed`, schema và API không đổi.
+- Yêu cầu PLAN, test và diff giúp kiểm soát thay đổi trong pipeline nhạy cảm.
+
+**What I changed**:
+
+- Điều chỉnh pipeline để `ProviderError` còn lượt retry giữ document `pending` và xóa dữ liệu partial.
+- Worker log `ingestion_retry_scheduled`; chỉ ghi `failed` khi hết lượt retry.
+- Thêm test cho retryable và non-retryable failure; `make test-backend` pass 51 tests và Compose chạy đủ 5 service.

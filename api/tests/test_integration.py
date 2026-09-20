@@ -249,6 +249,37 @@ class IntegrationTests(unittest.TestCase):
                 )
         self.assertEqual(process_document(document_id, "test.txt", b"content"), 1)
 
+    def test_retryable_provider_failure_stays_pending_then_becomes_ready(self):
+        document_id = self.create_document()
+        with (
+            patch("app.services.ingestion.embed", side_effect=ProviderError()),
+            self.assertRaises(ProviderError),
+        ):
+            process_document(
+                document_id,
+                "test.txt",
+                b"content",
+                retryable_failure=True,
+            )
+        state = self.state(document_id)
+        self.assertEqual((state[0], state[1], state[4]), ("pending", 0, 0))
+        self.assertIsNone(state[3])
+        self.assertEqual(process_document(document_id, "test.txt", b"content"), 1)
+        self.assertEqual(self.state(document_id)[0], "ready")
+
+    def test_non_retryable_failure_is_failed_even_when_retry_is_available(self):
+        document_id = self.create_document()
+        with self.assertRaises(InvalidDocument):
+            process_document(
+                document_id,
+                "test.txt",
+                b" \n ",
+                retryable_failure=True,
+            )
+        state = self.state(document_id)
+        self.assertEqual((state[0], state[1], state[4]), ("failed", 0, 0))
+        self.assertEqual(state[3], "invalid_document")
+
     def test_mid_insert_database_failure_rolls_back_all_chunks(self):
         document_id = self.create_document()
         with db.get_conn() as conn:
