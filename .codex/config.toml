@@ -9,3 +9,16 @@ KUBECONFIG = "C:\\Users\\longn\\.kube\\mcp\\insighthub-mcp.yaml"
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-filesystem", "."]
 enabled = true
+
+[mcp_servers.prometheus]
+command = "docker"
+args = [
+  "run",
+  "--rm",
+  "-i",
+  "--add-host=host.docker.internal:host-gateway",
+  "-e",
+  "PROMETHEUS_MCP_SERVER_PROMETHEUS_URL=http://host.docker.internal:9090",
+  "ghcr.io/tjhop/prometheus-mcp-server:v0.18.0@sha256:649949f954c0bac9397e77fb17f280e0cac2fb481b1248fa536d630b9fc542b5"
+]
+enabled = true
