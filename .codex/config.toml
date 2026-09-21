@@ -22,3 +22,15 @@ args = [
   "ghcr.io/tjhop/prometheus-mcp-server:v0.18.0@sha256:649949f954c0bac9397e77fb17f280e0cac2fb481b1248fa536d630b9fc542b5"
 ]
 enabled = true
+
+[mcp_servers.docker]
+command = "wsl.exe"
+args = [
+  "bash",
+  "-lc",
+  "exec docker run --rm -i -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/l337-org/docker-mcp-server:2.2.6@sha256:51e02f9bcc53a8cf864c0ccff007415b7b6bb03c3fd4eee4ca6026aa808b0506"
+]
+enabled = true
+startup_timeout_sec = 60
+tool_timeout_sec = 60
+default_tools_approval_mode = "prompt"
