@@ -1,0 +1,35 @@
+name: insighthub-metrics-lab
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    # Temporary lab storage; data is lost when the container stops.
+    tmpfs:
+      - /prometheus:uid=65534,gid=65534,mode=0700
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9090/-/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  sample-target:
+    image: prom/node-exporter:v1.12.1
+    restart: unless-stopped
+    # Sample metrics without mounting the host filesystem.
+    command:
+      - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.meminfo
+      - --collector.time
+    ports:
+      - "127.0.0.1:9100:9100"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9100/metrics"]
+      interval: 5s
+      timeout: 3s
+      retries: 12

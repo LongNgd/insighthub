@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "day": 1,
+  "mode": "real",
+  "observed_at": "2026-09-20T09:07:57Z",
+  "source_sha256": "791d563ce2f7d90778c6db7305423e15f6528e30aed332d5f224220888259ead",
+  "artifacts": {
+    "refactor": {
+      "path": "api/app/routers/documents.py",
+      "sha256": "d41adf6ca98d647492aec52c4fbfdd8e93888b6199a2edb23451caf857ea80de"
+    },
+    "review": {
+      "path": "evidence/day1-review.md",
+      "sha256": "874fbf774480541763e07fb0ff1a985d08b12815d8725e9975b8d82bb4cba465"
+    },
+    "worker": {
+      "path": "ingestion-worker/worker.py",
+      "sha256": "b040deb86b1ee1fea1f85919fd7ebdaddcfd905483bf18a190c7069b4efe12f5"
+    },
+    "worker_dockerfile": {
+      "path": "ingestion-worker/Dockerfile",
+      "sha256": "dbdc57acc20d4bbc3cee0e0b32c79a97f7f30abf551c11a4bfeed05add41e393"
+    }
+  }
+}

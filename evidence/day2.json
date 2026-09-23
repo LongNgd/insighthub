@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "day": 2,
+  "mode": "real",
+  "observed_at": "2026-09-23T08:38:44+00:00",
+  "source_sha256": "56099c838c389acb1d4b66cc98428b85500d2ee2e3bec0083e35b37a28dcf618",
+  "artifacts": {
+    "mcp_manifest": {
+      "path": "tools/mcp/manifest.json",
+      "sha256": "639d24b6db30787358dc6259825fccb472ba3a00b49fe567acc325887c6deef8"
+    }
+  }
+}
