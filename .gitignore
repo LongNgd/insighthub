@@ -26,6 +26,10 @@ yarn-error.log*
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+*.tfplan
+tfplan.json
+*.tfbackend
+.terraform.tfstate.lock.info
 
 # --- IDE / OS ---
 .vscode/
