@@ -1,6 +1,12 @@
 [mcp_servers.kubernetes]
 command = "npx"
-args = ["-y", "kubernetes-mcp-server@0.0.67"]
+args = [
+  "-y",
+  "kubernetes-mcp-server@0.0.67",
+  "--read-only",
+  "--disable-multi-cluster",
+  "--toolsets=core",
+]
 
 [mcp_servers.kubernetes.env]
 KUBECONFIG = "C:\\Users\\longn\\.kube\\mcp\\insighthub-mcp.yaml"
