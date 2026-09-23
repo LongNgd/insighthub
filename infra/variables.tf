@@ -33,7 +33,7 @@ variable "eks_api_cidrs" {
   type        = list(string)
 
   validation {
-    condition     = length(var.eks_api_cidrs) > 0 && !contains(var.eks_api_cidrs, "0.0.0.0/0")
+    condition     = length(var.eks_api_cidrs) > 0 && !contains(var.eks_api_cidrs, "0.0.0.0/0") && !contains(var.eks_api_cidrs, "::/0")
     error_message = "Provide explicit API CIDRs; unrestricted access is forbidden."
   }
 }
@@ -88,4 +88,10 @@ variable "manage_namespace" {
   description = "Enable only after EKS and its node group are ready."
   type        = bool
   default     = false
+}
+
+variable "rds_deletion_protection" {
+  description = "Keep enabled during the lab; set false only in a separately reviewed teardown plan."
+  type        = bool
+  default     = true
 }

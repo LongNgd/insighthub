@@ -10,13 +10,19 @@ Chạy từ root repo trong WSL sau `source .venv/bin/activate`:
 terraform -chdir=infra fmt -check -recursive
 terraform -chdir=infra init -backend=false -input=false
 terraform -chdir=infra validate
-cd infra && tflint --recursive
+(cd infra && tflint --recursive)
 checkov -d infra/
+bash scripts/test-terraform-policy.sh
+# Sau khi có plan thật từ đúng account/region, không commit tfplan hoặc tfplan.json:
+# terraform -chdir=infra show -json tfplan > tfplan.json
+# conftest test --policy policy/terraform tfplan.json
 ```
 
 `init -backend=false` chỉ cài provider; có thể cần internet. `validate`, tflint và Checkov không chứng minh hạ tầng đã chạy. Review mọi cảnh báo; không sửa assertion hoặc thêm skip để làm scan xanh. `.terraform.lock.hcl` được commit, còn `.terraform/`, state, plan và tfvars chứa dữ liệu nhạy cảm không được commit.
 
-Checkov `3.3.19` hiện báo 6 finding: `CKV_AWS_38`, `CKV_AWS_39` (EKS public API), `CKV_AWS_293`, `CKV_AWS_157` (RDS deletion protection/Multi-AZ), `CKV2_AWS_50` (Redis failover) và `CKV2_AWS_57` (Redis secret rotation). Scan đầy đủ exit 1; chưa đạt gate Checkov. Public API bị giới hạn bởi `eks_api_cidrs` và validation cấm `0.0.0.0/0`, nhưng scanner không chứng minh được giá trị runtime của biến. Các finding còn lại cần quyết định theo budget, teardown và cơ chế xoay Redis token thực sự; không thêm skip hoặc cấu hình giả để lấy PASS.
+Conftest `0.70.1` trong `.venv` kiểm tra Terraform plan JSON: tag bắt buộc, mã hóa RDS/Redis, RDS private, EKS private API access và public CIDR, giới hạn node/storage/cache, và chặn delete trong plan triển khai. `scripts/test-terraform-policy.sh` chạy fixture hợp lệ và fixture vi phạm; PASS với fixture chỉ chứng minh logic policy, không thay thế kiểm tra plan thật. Policy capacity không phải ước tính USD; dùng Infracost riêng. Plan JSON có thể chứa secret, nên lưu cục bộ an toàn và không commit.
+
+Checkov `3.3.19` hiện có 95 checks đạt, 5 findings, 0 skipped; report ở `evidence/day3-checkov.txt`. `CKV_AWS_293` đã đạt sau khi bật RDS deletion protection mặc định. Năm findings còn lại: `CKV_AWS_38`, `CKV_AWS_39` (EKS public API), `CKV_AWS_157` (RDS Multi-AZ), `CKV2_AWS_50` (Redis failover) và `CKV2_AWS_57` (Redis secret rotation). Public API bị giới hạn bởi `eks_api_cidrs` và validation cấm `0.0.0.0/0`, nhưng scanner không chứng minh được giá trị runtime của biến. Multi-AZ, Redis failover và secret rotation cần thiết kế/ước tính chi phí và kiểm chứng runtime trước khi bật; không thêm skip hoặc cấu hình giả để lấy PASS. Gate Checkov đầy đủ vẫn exit 1.
 
 ## Điều kiện trước AWS
 
@@ -30,6 +36,6 @@ Namespace là giai đoạn hai: giữ `manage_namespace=false` khi tạo EKS; sa
 
 ## Giới hạn skeleton và teardown
 
-Helm, HTTPS, GitHub Actions/OIDC, Conftest, Infracost, smoke và evidence CI chưa được triển khai trong skeleton này. RDS extension `vector` phải được bật bằng DB role phù hợp trước khi chạy ứng dụng. ElastiCache bật TLS và AUTH; ứng dụng cần cấu hình kết nối Redis tương thích trong bước Helm. Kiểm chứng riêng namespace, IAM trust, DB/cache private/encrypted/tagged và ba workload Ready.
+Helm, HTTPS, GitHub Actions/OIDC, Infracost, smoke và evidence CI chưa được triển khai trong skeleton này; Conftest hiện mới được kiểm tra trên fixture, chưa trên AWS plan thật. RDS extension `vector` phải được bật bằng DB role phù hợp trước khi chạy ứng dụng. ElastiCache bật TLS và AUTH; ứng dụng cần cấu hình kết nối Redis tương thích trong bước Helm. Kiểm chứng riêng namespace, IAM trust, DB/cache private/encrypted/tagged và ba workload Ready.
 
-Sau lượt lab, xóa resource con do Kubernetes controller tạo trước, review destroy plan, apply chính plan đó rồi đối chiếu inventory AWS read-only ở mọi region đã dùng. `terraform state list` rỗng không đủ chứng minh không còn orphan, snapshot hoặc tài nguyên tính phí. Không giữ EKS/RDS/Redis qua đêm để duy trì URL demo.
+Sau lượt lab, xóa resource con do Kubernetes controller tạo trước. Để teardown RDS, review plan riêng chuyển `rds_deletion_protection=false`, phê duyệt và apply thay đổi đó trước destroy; Conftest sẽ chặn plan này theo chủ đích nên ghi ngoại lệ teardown cùng người duyệt và evidence, không bỏ policy khỏi gate triển khai. Sau đó review destroy plan, apply chính plan đó rồi đối chiếu inventory AWS read-only ở mọi region đã dùng. `terraform state list` rỗng không đủ chứng minh không còn orphan, snapshot hoặc tài nguyên tính phí. Không giữ EKS/RDS/Redis qua đêm để duy trì URL demo.

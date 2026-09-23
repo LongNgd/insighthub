@@ -1,6 +1,6 @@
 terraform scan results:
 
-Passed checks: 94, Failed checks: 6, Skipped checks: 0
+Passed checks: 95, Failed checks: 5, Skipped checks: 0
 
 Check: CKV_AWS_39: "Ensure Amazon EKS public endpoint disabled"
 	FAILED for resource: aws_eks_cluster.this
@@ -10,10 +10,6 @@ Check: CKV_AWS_38: "Ensure Amazon EKS public endpoint not accessible to 0.0.0.0/
 	FAILED for resource: aws_eks_cluster.this
 	File: /main.tf:107-127
 	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-kubernetes-policies/bc-aws-kubernetes-1
-Check: CKV_AWS_293: "Ensure that AWS database instances have deletion protection enabled"
-	FAILED for resource: aws_db_instance.this
-	File: /main.tf:211-240
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-293
 Check: CKV_AWS_157: "Ensure that RDS instances have Multi-AZ enabled"
 	FAILED for resource: aws_db_instance.this
 	File: /main.tf:211-240

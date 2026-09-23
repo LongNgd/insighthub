@@ -1,0 +1,59 @@
+{
+  "format_version": "1.2",
+  "resource_changes": [
+    {
+      "address": "aws_eks_cluster.this",
+      "mode": "managed",
+      "type": "aws_eks_cluster",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "tags_all": {"project": "insighthub", "environment": "prod", "owner": "lab", "cost_center": "DO2603", "managed_by": "terraform", "Class": "DO2603", "LabId": "example-lab", "Owner": "lab", "ExpiresAt": "2026-09-23T18:00:00Z"},
+          "encryption_config": [{"resources": ["secrets"]}],
+          "vpc_config": [{"endpoint_private_access": true, "endpoint_public_access": true, "public_access_cidrs": ["203.0.113.10/32"]}]
+        }
+      }
+    },
+    {
+      "address": "aws_eks_node_group.this",
+      "mode": "managed",
+      "type": "aws_eks_node_group",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "tags_all": {"project": "insighthub", "environment": "prod", "owner": "lab", "cost_center": "DO2603", "managed_by": "terraform", "Class": "DO2603", "LabId": "example-lab", "Owner": "lab", "ExpiresAt": "2026-09-23T18:00:00Z"},
+          "scaling_config": [{"max_size": 2}]
+        }
+      }
+    },
+    {
+      "address": "aws_db_instance.this",
+      "mode": "managed",
+      "type": "aws_db_instance",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "tags_all": {"project": "insighthub", "environment": "prod", "owner": "lab", "cost_center": "DO2603", "managed_by": "terraform", "Class": "DO2603", "LabId": "example-lab", "Owner": "lab", "ExpiresAt": "2026-09-23T18:00:00Z"},
+          "storage_encrypted": true,
+          "publicly_accessible": false,
+          "deletion_protection": true,
+          "allocated_storage": 20
+        }
+      }
+    },
+    {
+      "address": "aws_elasticache_replication_group.this",
+      "mode": "managed",
+      "type": "aws_elasticache_replication_group",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "tags_all": {"project": "insighthub", "environment": "prod", "owner": "lab", "cost_center": "DO2603", "managed_by": "terraform", "Class": "DO2603", "LabId": "example-lab", "Owner": "lab", "ExpiresAt": "2026-09-23T18:00:00Z"},
+          "at_rest_encryption_enabled": true,
+          "transit_encryption_enabled": true,
+          "num_cache_clusters": 1
+        }
+      }
+    }
+  ]
+}

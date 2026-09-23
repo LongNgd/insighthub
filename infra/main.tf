@@ -233,8 +233,8 @@ resource "aws_db_instance" "this" {
   performance_insights_kms_key_id     = aws_kms_key.lab.arn
   monitoring_interval                 = 60
   monitoring_role_arn                 = aws_iam_role.rds_monitoring.arn
-  deletion_protection                 = false # Bounded lab; reviewed destroy plan and snapshot inventory are mandatory.
-  skip_final_snapshot                 = true  # Lab dataset is reproducible; do not retain a billable snapshot.
+  deletion_protection                 = var.rds_deletion_protection
+  skip_final_snapshot                 = true # Lab dataset is reproducible; do not retain a billable snapshot.
 
   depends_on = [aws_iam_role_policy_attachment.rds_monitoring]
 }
