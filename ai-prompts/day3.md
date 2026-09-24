@@ -126,3 +126,72 @@ PLAN phải nêu rõ:
 - `checkov -d infra/ --framework terraform --quiet --compact`: 94 checks đạt, 6 findings, 0 skipped, exit 1; output lưu tại [Checkov report](../evidence/day3-checkov.txt). Đã sửa các finding về EKS logging, mô tả security group, RDS TLS/logging/monitoring, KMS và tag snapshot; số finding giảm từ 19 xuống 6. Sáu ID còn lại và lý do chưa xử lý được ghi trong `infra/README.md`. Gate Checkov đầy đủ chưa đạt; output độc lập không gán severity, nên không tuyên bố đã chứng minh "no HIGH".
 - Chưa chạy plan/apply, chưa tạo AWS resource. Các cấu hình logging/monitoring/KMS thêm chi phí và KMS key cần theo dõi trong teardown.
 - Các phần Helm, GitHub Actions/OIDC, Conftest, Infracost, HTTPS, smoke và teardown vẫn cần prompt/triển khai/evidence riêng.
+
+## Prompt 3 - PLAN Helm và Kubernetes local
+
+**Host**: ChatGPT-Codex
+
+**Ngày cập nhật log**: 24/09/2026 (+07:00)
+
+**Context / Evidence**: [SPEC Day 3](../infra/SPEC.md), [Running Project Specification](../Running-Project-Specification-Student.md), [Docker Compose](../docker-compose.yml), [Helm chart](../helm/insighthub/Chart.yaml).
+
+**Prompt gốc**:
+
+```text
+## 1. Mục tiêu (Goal)
+
+Dựa trên SPEC Day 3 và yêu cầu trong `Running-Project-Specification-Student.md`, lập PLAN để tạo Helm chart và chạy InsightHub đầy đủ trên Kubernetes local trước khi triển khai AWS.
+
+## 2. Ràng buộc (Constraints - PHẢI TUÂN THỦ)
+
+- CHƯA sửa file ở bước này.
+- CHƯA tạo AWS resource.
+- Bám đúng `infra/SPEC.md` và yêu cầu Day 3.
+- Kubernetes local phải chạy đủ 5 thành phần:
+  - `web`
+  - `api`
+  - `ingestion-worker`
+  - Redis
+  - PostgreSQL + pgvector
+- Giữ nguyên kiến trúc async và API contract hiện tại.
+- Không hardcode secret.
+- Helm chart phải thiết kế để sau này chuyển sang EKS, khi đó Redis và PostgreSQL local sẽ được thay bằng ElastiCache và RDS.
+
+## 3. Tiêu chí thành công (Acceptance Criteria)
+
+PLAN phải nêu rõ cách verify:
+
+- Helm chart tại `helm/insighthub/`.
+- Namespace `insighthub-`prod.
+- Cả 5 thành phần chạy thành công.
+- `web`, `api`, `ingestion-worker` Ready.
+- Redis và PostgreSQL/pgvector kết nối được.
+- `/healthz` trả `200`.
+- Upload `/documents` trả `202`.
+- Document chuyển sang `ready` trong ≤ 30 giây.
+- `/chat` trả `200` và có answer.
+- Có cách kiểm tra pod, service, logs và rollout.
+
+## 4. Ví dụ pattern tham chiếu (Reference)
+
+- `Running-Project-Specification-Student.md` mục Day 3.
+- `infra/SPEC.md`.
+- `docker-compose.yml` hiện tại để map image, port, env, volume và dependency sang Kubernetes.
+
+## 5. Quy trình thực hiện (Process / Output Expected)
+
+- Đọc cấu trúc repo, SPEC và Docker Compose hiện tại.
+- Đề xuất cấu trúc `helm/insighthub/`.
+- Liệt kê resource Kubernetes cần tạo cho cả 5 thành phần.
+- Nêu rõ Deployment/StatefulSet, Service, ConfigMap, Secret, PVC và probes nếu cần.
+- Nêu cách build/load image vào cluster local.
+- Nêu thứ tự deploy và smoke test.
+- Nêu rõ file nào sẽ tạo hoặc sửa.
+- KHÔNG sửa file.
+- ĐỢI TÔI DUYỆT PLAN rồi mới triển khai.
+```
+
+**Quyết định / Review**:
+
+- Người dùng đã duyệt PLAN Helm/Kubernetes local trong hội thoại. Prompt gốc được lưu nguyên văn; dòng namespace có lỗi dấu backtick và được hiểu là `insighthub-prod` theo SPEC và chart.
+- Việc ghi lại prompt này chỉ cập nhật prompt log; không phải bằng chứng rằng các workload Ready hoặc smoke test đã PASS.
