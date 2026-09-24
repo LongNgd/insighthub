@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: insighthub-prod
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcp-readonly
+  namespace: insighthub-prod
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mcp-readonly
+  namespace: insighthub-prod
+rules:
+  - apiGroups: [""]
+    resources:
+      - configmaps
+      - endpoints
+      - events
+      - persistentvolumeclaims
+      - pods
+      - pods/log
+      - replicationcontrollers
+      - services
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - daemonsets
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources:
+      - cronjobs
+      - jobs
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mcp-readonly
+  namespace: insighthub-prod
+subjects:
+  - kind: ServiceAccount
+    name: mcp-readonly
+    namespace: insighthub-prod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mcp-readonly
+---
+# This asks the controller to mint a token for the ServiceAccount. Its populated
+# data remains in the cluster and is copied only to the local MCP kubeconfig.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mcp-readonly-token
+  namespace: insighthub-prod
+  annotations:
+    kubernetes.io/service-account.name: mcp-readonly
+type: kubernetes.io/service-account-token
