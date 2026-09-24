@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "insighthub.fullname" . }}-worker
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "insighthub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "insighthub.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+      annotations:
+        checksum/config: {{ toJson .Values.app.config | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountToken }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+      containers:
+        - name: worker
+          image: {{ include "insighthub.image" .Values.images.worker | quote }}
+          imagePullPolicy: {{ .Values.images.worker.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "insighthub.fullname" . }}-app
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.app.existingSecret }}
+                  key: {{ .Values.app.databaseUrlKey }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.app.existingSecret }}
+                  key: {{ .Values.app.redisUrlKey }}
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import os, psycopg, redis, sys; sys.excepthook = lambda *args: None; conn = psycopg.connect(os.environ['DATABASE_URL'], connect_timeout=2); conn.close(); assert redis.Redis.from_url(os.environ['REDIS_URL'], socket_timeout=2).ping()"
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.app.resources | nindent 12 }}

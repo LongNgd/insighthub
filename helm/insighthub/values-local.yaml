@@ -1,0 +1,8 @@
+# Load the three app images into kind and override their tags with the source commit.
+# Credentials live in the pre-created insighthub-local-credentials Secret.
+postgres:
+  enabled: true
+redis:
+  enabled: true
+serviceAccount:
+  create: true

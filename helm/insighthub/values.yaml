@@ -1,0 +1,79 @@
+nameOverride: ""
+
+serviceAccount:
+  create: true
+  name: insighthub
+  automountToken: false
+
+images:
+  web:
+    repository: insighthub-web
+    tag: local
+    pullPolicy: IfNotPresent
+  api:
+    repository: insighthub-api
+    tag: local
+    pullPolicy: IfNotPresent
+  worker:
+    repository: insighthub-worker
+    tag: local
+    pullPolicy: IfNotPresent
+
+app:
+  existingSecret: insighthub-local-credentials
+  databaseUrlKey: database-url
+  redisUrlKey: redis-url
+  config:
+    RAG_MODE: fixture
+    LLM_PROVIDER: fixture
+    EMBEDDING_PROVIDER: fixture
+    EMBEDDING_DIM: "1024"
+    EMBEDDING_REVISION: "1"
+    LOG_LEVEL: INFO
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+web:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+postgres:
+  enabled: true
+  image: pgvector/pgvector:0.8.2-pg16@sha256:00ba258a66dac104fd5171074a0084462a64a1369d8513f3d0a634e2f24d15bc
+  user: insighthub
+  database: insighthub
+  passwordSecretKey: postgres-password
+  storage: 2Gi
+  storageClassName: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
+
+redis:
+  enabled: true
+  image: redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952
+  configSecretKey: redis.conf
+  passwordSecretKey: redis-password
+  storage: 1Gi
+  storageClassName: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

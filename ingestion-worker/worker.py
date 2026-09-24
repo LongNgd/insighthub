@@ -7,11 +7,17 @@ from typing import Any
 
 from arq import Retry
 from arq.connections import RedisSettings
+from arq.logs import default_log_config
 
 from app.core.config import get_settings
 from app.core.db import close_pool, initialize_database
 from app.core.errors import DocumentNotFound, ProviderError, ServiceError
 from app.services.ingestion import process_document
+
+# The ARQ CLI applies dictConfig after importing this module. Its INFO job
+# representation includes uploaded bytes, so suppress ARQ INFO at the source.
+SAFE_LOG_CONFIG = default_log_config(False)
+SAFE_LOG_CONFIG["loggers"]["arq"]["level"] = "WARNING"
 
 def _log(event: str, document_id: int, status: str, attempt: int, error_code: str | None = None) -> None:
     record: dict[str, Any] = {

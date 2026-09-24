@@ -1,0 +1,11 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "insighthub.fullname" . }}-postgres-init
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+data:
+  init.sql: |
+{{ .Files.Get "files/init.sql" | indent 4 }}
+{{- end }}

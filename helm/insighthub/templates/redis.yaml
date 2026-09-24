@@ -1,0 +1,97 @@
+{{- if .Values.redis.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "insighthub.fullname" . }}-redis-data
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if .Values.redis.storageClassName }}
+  storageClassName: {{ .Values.redis.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.redis.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "insighthub.fullname" . }}-redis
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+  selector:
+    {{- include "insighthub.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "insighthub.fullname" . }}-redis
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: {{ include "insighthub.fullname" . }}-redis
+  selector:
+    matchLabels:
+      {{- include "insighthub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        {{- include "insighthub.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redis
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: [redis-server, /etc/redis/redis.conf]
+          ports:
+            - name: redis
+              containerPort: 6379
+          env:
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.app.existingSecret }}
+                  key: {{ .Values.redis.passwordSecretKey }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /etc/redis
+              readOnly: true
+          startupProbe:
+            exec:
+              command: [redis-cli, ping]
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            exec:
+              command: [redis-cli, ping]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: [redis-cli, ping]
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "insighthub.fullname" . }}-redis-data
+        - name: config
+          secret:
+            secretName: {{ .Values.app.existingSecret }}
+            items:
+              - key: {{ .Values.redis.configSecretKey }}
+                path: redis.conf
+{{- end }}

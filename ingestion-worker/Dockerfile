@@ -15,4 +15,4 @@ COPY --from=deps /usr/local/bin /usr/local/bin
 COPY --chown=appuser:appuser api/app ./app
 COPY --chown=appuser:appuser ingestion-worker/worker.py ./worker.py
 USER appuser
-CMD ["arq", "worker.WorkerSettings"]
+CMD ["arq", "worker.WorkerSettings", "--custom-log-dict", "worker.SAFE_LOG_CONFIG"]
