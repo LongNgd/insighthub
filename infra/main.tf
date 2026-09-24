@@ -90,7 +90,10 @@ resource "aws_kms_key" "lab" {
         Resource  = "*"
         Condition = {
           ArnEquals = {
-            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/eks/${local.name}/cluster"
+            "kms:EncryptionContext:aws:logs:arn" = [
+              "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/eks/${local.name}/cluster",
+              "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/lambda/${local.name}-redis-rotation",
+            ]
           }
         }
       },
@@ -112,8 +115,7 @@ resource "aws_eks_cluster" "this" {
   vpc_config {
     subnet_ids              = var.private_subnet_ids
     endpoint_private_access = true
-    endpoint_public_access  = true
-    public_access_cidrs     = var.eks_api_cidrs
+    endpoint_public_access  = false
   }
 
   encryption_config {
@@ -225,6 +227,7 @@ resource "aws_db_instance" "this" {
   parameter_group_name                = aws_db_parameter_group.postgres.name
   vpc_security_group_ids              = [aws_security_group.rds.id]
   publicly_accessible                 = false
+  multi_az                            = true
   backup_retention_period             = 7
   copy_tags_to_snapshot               = true
   auto_minor_version_upgrade          = true
@@ -257,6 +260,16 @@ resource "aws_vpc_security_group_ingress_rule" "redis_from_eks" {
 resource "aws_elasticache_subnet_group" "this" {
   name       = "${local.name}-cache"
   subnet_ids = var.private_subnet_ids
+
+  lifecycle {
+    precondition {
+      condition = (
+        length(distinct([for subnet in data.aws_subnet.private : subnet.availability_zone])) >= 2 &&
+        alltrue([for subnet in data.aws_subnet.private : subnet.vpc_id == data.aws_vpc.lab.id])
+      )
+      error_message = "Redis private subnets must belong to the lab VPC and span at least two availability zones."
+    }
+  }
 }
 
 resource "aws_elasticache_replication_group" "this" {
@@ -265,7 +278,9 @@ resource "aws_elasticache_replication_group" "this" {
   engine                     = "redis"
   engine_version             = "7.1"
   node_type                  = var.cache_node_type
-  num_cache_clusters         = 1
+  num_cache_clusters         = 2
+  automatic_failover_enabled = true
+  multi_az_enabled           = true
   subnet_group_name          = aws_elasticache_subnet_group.this.name
   security_group_ids         = [aws_security_group.redis.id]
   at_rest_encryption_enabled = true
@@ -273,6 +288,11 @@ resource "aws_elasticache_replication_group" "this" {
   kms_key_id                 = aws_kms_key.lab.arn
   auth_token                 = var.redis_auth_token
   snapshot_retention_limit   = 0
+
+  # Secrets Manager rotation changes the remote token after bootstrap.
+  lifecycle {
+    ignore_changes = [auth_token]
+  }
 }
 
 resource "aws_secretsmanager_secret" "redis" {
@@ -286,6 +306,11 @@ resource "aws_secretsmanager_secret" "redis" {
 resource "aws_secretsmanager_secret_version" "redis" {
   secret_id     = aws_secretsmanager_secret.redis.id
   secret_string = var.redis_auth_token
+
+  # Rotation owns subsequent versions; Terraform only bootstraps the initial token.
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
 }
 
 data "tls_certificate" "eks_oidc" {

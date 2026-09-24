@@ -1,24 +1,3 @@
 terraform scan results:
 
-Passed checks: 95, Failed checks: 5, Skipped checks: 0
-
-Check: CKV_AWS_39: "Ensure Amazon EKS public endpoint disabled"
-	FAILED for resource: aws_eks_cluster.this
-	File: /main.tf:107-127
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-kubernetes-policies/bc-aws-kubernetes-2
-Check: CKV_AWS_38: "Ensure Amazon EKS public endpoint not accessible to 0.0.0.0/0"
-	FAILED for resource: aws_eks_cluster.this
-	File: /main.tf:107-127
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-kubernetes-policies/bc-aws-kubernetes-1
-Check: CKV_AWS_157: "Ensure that RDS instances have Multi-AZ enabled"
-	FAILED for resource: aws_db_instance.this
-	File: /main.tf:211-240
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-73
-Check: CKV2_AWS_50: "Ensure AWS ElastiCache Redis cluster with Multi-AZ Automatic Failover feature set to enabled"
-	FAILED for resource: aws_elasticache_replication_group.this
-	File: /main.tf:262-276
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-elasticache-redis-cluster-with-multi-az-automatic-failover-feature-set-to-enabled
-Check: CKV2_AWS_57: "Ensure Secrets Manager secrets should have automatic rotation enabled"
-	FAILED for resource: aws_secretsmanager_secret.redis
-	File: /main.tf:278-283
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-2-57
+Passed checks: 164, Failed checks: 0, Skipped checks: 0

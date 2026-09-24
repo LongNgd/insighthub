@@ -16,8 +16,7 @@ valid_db_storage(value) if {
 
 valid_cache_nodes(value) if {
     is_number(value)
-    value >= 1
-    value <= 2
+    value == 2
 }
 
 deny contains msg if {
@@ -53,5 +52,5 @@ deny contains msg if {
     rc.type == "aws_elasticache_replication_group"
     nodes := object.get(rc.change.after, "num_cache_clusters", null)
     not valid_cache_nodes(nodes)
-    msg := sprintf("%s: Redis node count exceeds lab limit 2", [rc.address])
+    msg := sprintf("%s: Redis requires exactly two nodes for failover", [rc.address])
 }

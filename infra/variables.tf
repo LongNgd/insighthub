@@ -28,16 +28,6 @@ variable "private_subnet_ids" {
   }
 }
 
-variable "eks_api_cidrs" {
-  description = "Restricted CIDRs allowed to reach the EKS public API endpoint."
-  type        = list(string)
-
-  validation {
-    condition     = length(var.eks_api_cidrs) > 0 && !contains(var.eks_api_cidrs, "0.0.0.0/0") && !contains(var.eks_api_cidrs, "::/0")
-    error_message = "Provide explicit API CIDRs; unrestricted access is forbidden."
-  }
-}
-
 variable "owner" {
   description = "Owner tag for all supported resources."
   type        = string
@@ -82,6 +72,26 @@ variable "redis_auth_token" {
     condition     = length(var.redis_auth_token) >= 16 && length(var.redis_auth_token) <= 128
     error_message = "Redis AUTH token length must be 16 to 128 characters."
   }
+}
+
+variable "rotation_signed_s3_bucket" {
+  description = "Versioned, encrypted S3 bucket containing the AWS Signer-signed rotation Lambda ZIP."
+  type        = string
+}
+
+variable "rotation_signed_s3_key" {
+  description = "S3 key of the signed rotation Lambda ZIP."
+  type        = string
+}
+
+variable "rotation_signed_s3_object_version" {
+  description = "Immutable S3 object version of the signed rotation Lambda ZIP."
+  type        = string
+}
+
+variable "rotation_signing_profile_version_arn" {
+  description = "Version ARN of the AWS Signer profile used to sign the Lambda ZIP."
+  type        = string
 }
 
 variable "manage_namespace" {

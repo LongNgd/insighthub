@@ -12,7 +12,7 @@ if invalid_output=$(conftest test --policy "$POLICY" "$FIXTURES/invalid.json" 2>
     exit 1
 fi
 
-for expected in 'missing required tag' 'RDS storage encryption' 'Redis in-transit encryption' 'public EKS API cannot allow' 'exceeds lab limit' 'destructive action'; do
+for expected in 'missing required tag' 'RDS storage encryption' 'RDS Multi-AZ' 'Redis in-transit encryption' 'Redis automatic failover' 'Redis Multi-AZ' 'public EKS API must be disabled' 'public EKS API cannot allow' 'rotation resource is required' 'exceeds lab limit' 'destructive action'; do
     if ! printf '%s\n' "$invalid_output" | grep -q "$expected"; then
         printf 'FAIL: missing expected policy failure: %s\n' "$expected" >&2
         exit 1

@@ -10,7 +10,7 @@
         "after": {
           "tags_all": {"project": "insighthub", "environment": "prod", "owner": "lab", "cost_center": "DO2603", "managed_by": "terraform", "Class": "DO2603", "LabId": "example-lab", "Owner": "lab", "ExpiresAt": "2026-09-23T18:00:00Z"},
           "encryption_config": [{"resources": ["secrets"]}],
-          "vpc_config": [{"endpoint_private_access": true, "endpoint_public_access": true, "public_access_cidrs": ["203.0.113.10/32"]}]
+          "vpc_config": [{"endpoint_private_access": true, "endpoint_public_access": false}]
         }
       }
     },
@@ -37,6 +37,7 @@
           "storage_encrypted": true,
           "publicly_accessible": false,
           "deletion_protection": true,
+          "multi_az": true,
           "allocated_storage": 20
         }
       }
@@ -51,8 +52,30 @@
           "tags_all": {"project": "insighthub", "environment": "prod", "owner": "lab", "cost_center": "DO2603", "managed_by": "terraform", "Class": "DO2603", "LabId": "example-lab", "Owner": "lab", "ExpiresAt": "2026-09-23T18:00:00Z"},
           "at_rest_encryption_enabled": true,
           "transit_encryption_enabled": true,
-          "num_cache_clusters": 1
+          "automatic_failover_enabled": true,
+          "multi_az_enabled": true,
+          "num_cache_clusters": 2
         }
+      }
+    },
+    {
+      "address": "aws_secretsmanager_secret.redis",
+      "mode": "managed",
+      "type": "aws_secretsmanager_secret",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "tags_all": {"project": "insighthub", "environment": "prod", "owner": "lab", "cost_center": "DO2603", "managed_by": "terraform", "Class": "DO2603", "LabId": "example-lab", "Owner": "lab", "ExpiresAt": "2026-09-23T18:00:00Z"}
+        }
+      }
+    },
+    {
+      "address": "aws_secretsmanager_secret_rotation.redis",
+      "mode": "managed",
+      "type": "aws_secretsmanager_secret_rotation",
+      "change": {
+        "actions": ["create"],
+        "after": {"rotation_rules": [{"automatically_after_days": 30}]}
       }
     }
   ]
