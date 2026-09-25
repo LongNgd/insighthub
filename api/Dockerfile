@@ -11,7 +11,9 @@ RUN pip install --no-cache-dir --require-hashes -r requirements.txt \
 
 FROM base AS runtime
 # Non-root user
-RUN groupadd --system --gid 1001 appuser \
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 1001 appuser \
     && useradd --system --uid 1001 --gid appuser appuser
 COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=deps /usr/local/bin /usr/local/bin
