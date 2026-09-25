@@ -93,6 +93,14 @@ jobs:
           chmod +x "$RUNNER_TEMP/conftest"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - run: bash scripts/test-terraform-policy.sh
+      - name: Run Day 3 policy tests
+        run: |
+          python3 -m venv "$RUNNER_TEMP/policy-venv"
+          "$RUNNER_TEMP/policy-venv/bin/pip" install --disable-pip-version-check --require-hashes \
+            -r scripts/requirements-verification.txt
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$RUNNER_TEMP/policy-venv/bin/python" -m pytest \
+            -q -c /dev/null --confcutdir=tests/milestones/day3 -p no:cacheprovider \
+            tests/milestones/day3/test_policy.py
 
   app-build-test-scan:
     needs: policy
