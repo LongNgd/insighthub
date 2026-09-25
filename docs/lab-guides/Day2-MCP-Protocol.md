@@ -5,6 +5,12 @@ Nguồn: mục 6 trong [Specification v3.3](../../Running-Project-Specification-
 ## Đầu vào tích lũy
 Day 1 đã có queue/worker. Chuẩn bị cluster lab local và Prometheus sample targets trước buổi; Day 3 sẽ triển khai chính thức, Day 4 mở rộng observability.
 
+Cluster local chuẩn của InsightHub là KIND `insighthub`.
+Kubernetes MCP chỉ được khai báo tại `.codex/config.toml` của project và dùng
+kubeconfig ServiceAccount riêng. Role `mcp-readonly` chỉ có `get`, `list`,
+`watch` trong namespace `insighthub-prod`; `--read-only` của MCP là defense in
+depth, không thay RBAC. Xem [KIND/RBAC local](../../kubernetes/README.md).
+
 ## Công việc phải hoàn thiện
 Cấu hình đúng JSON/TOML của host đã chọn với4+ MCP backends Filesystem, Docker/container, Kubernetes, Prometheus; pin version/transport đúng host; Connected và Inspector/tools list/call từng server; ServiceAccount/RBAC read-only, filesystem allowlist; profile AWS scoped khi dùng AWS; debug 1 case thực và quiz 10 câu.
 

@@ -1,0 +1,82 @@
+{
+  "format_version": "1.2",
+  "resource_changes": [
+    {
+      "address": "aws_eks_cluster.this",
+      "mode": "managed",
+      "type": "aws_eks_cluster",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "tags_all": {"project": "insighthub", "environment": "prod", "owner": "lab", "cost_center": "DO2603", "managed_by": "terraform", "Class": "DO2603", "LabId": "example-lab", "Owner": "lab", "ExpiresAt": "2026-09-23T18:00:00Z"},
+          "encryption_config": [{"resources": ["secrets"]}],
+          "vpc_config": [{"endpoint_private_access": true, "endpoint_public_access": false}]
+        }
+      }
+    },
+    {
+      "address": "aws_eks_node_group.this",
+      "mode": "managed",
+      "type": "aws_eks_node_group",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "tags_all": {"project": "insighthub", "environment": "prod", "owner": "lab", "cost_center": "DO2603", "managed_by": "terraform", "Class": "DO2603", "LabId": "example-lab", "Owner": "lab", "ExpiresAt": "2026-09-23T18:00:00Z"},
+          "scaling_config": [{"max_size": 2}]
+        }
+      }
+    },
+    {
+      "address": "aws_db_instance.this",
+      "mode": "managed",
+      "type": "aws_db_instance",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "tags_all": {"project": "insighthub", "environment": "prod", "owner": "lab", "cost_center": "DO2603", "managed_by": "terraform", "Class": "DO2603", "LabId": "example-lab", "Owner": "lab", "ExpiresAt": "2026-09-23T18:00:00Z"},
+          "storage_encrypted": true,
+          "publicly_accessible": false,
+          "deletion_protection": true,
+          "multi_az": true,
+          "allocated_storage": 20
+        }
+      }
+    },
+    {
+      "address": "aws_elasticache_replication_group.this",
+      "mode": "managed",
+      "type": "aws_elasticache_replication_group",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "tags_all": {"project": "insighthub", "environment": "prod", "owner": "lab", "cost_center": "DO2603", "managed_by": "terraform", "Class": "DO2603", "LabId": "example-lab", "Owner": "lab", "ExpiresAt": "2026-09-23T18:00:00Z"},
+          "at_rest_encryption_enabled": true,
+          "transit_encryption_enabled": true,
+          "automatic_failover_enabled": true,
+          "multi_az_enabled": true,
+          "num_cache_clusters": 2
+        }
+      }
+    },
+    {
+      "address": "aws_secretsmanager_secret.redis",
+      "mode": "managed",
+      "type": "aws_secretsmanager_secret",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "tags_all": {"project": "insighthub", "environment": "prod", "owner": "lab", "cost_center": "DO2603", "managed_by": "terraform", "Class": "DO2603", "LabId": "example-lab", "Owner": "lab", "ExpiresAt": "2026-09-23T18:00:00Z"}
+        }
+      }
+    },
+    {
+      "address": "aws_secretsmanager_secret_rotation.redis",
+      "mode": "managed",
+      "type": "aws_secretsmanager_secret_rotation",
+      "change": {
+        "actions": ["create"],
+        "after": {"rotation_rules": [{"automatically_after_days": 30}]}
+      }
+    }
+  ]
+}

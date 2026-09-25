@@ -1,0 +1,481 @@
+name: Day 3 IaC
+
+on:
+  pull_request:
+  push:
+    branches: [prod/main, 'prod/day3-*']
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'foundation first; namespace only after EKS and VPC runner are ready'
+        type: choice
+        required: true
+        options: [foundation, namespace]
+      lab_hours:
+        description: 'Planned lab duration for the cost estimate'
+        type: number
+        required: true
+        default: 4
+
+permissions:
+  contents: read
+
+concurrency:
+  group: day3-iac-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: 'true'
+  TF_INPUT: 'false'
+
+jobs:
+  fmt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
+      - run: terraform -chdir=infra fmt -check -recursive
+
+  lint:
+    needs: fmt
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
+      - uses: terraform-linters/setup-tflint@1cf010d3c7aef302051ccdb68c14c5dc2efa34ef # v6.3.1
+        with:
+          tflint_version: v0.62.0
+      - run: terraform -chdir=infra init -backend=false -input=false -lockfile=readonly
+      - run: terraform -chdir=infra validate
+      - run: cd infra && tflint --recursive
+
+  scan:
+    needs: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Checkov in an isolated environment
+        run: |
+          python3 -m venv "$RUNNER_TEMP/checkov-venv"
+          "$RUNNER_TEMP/checkov-venv/bin/pip" install --disable-pip-version-check 'checkov==3.3.19'
+      - run: |
+          "$RUNNER_TEMP/checkov-venv/bin/checkov" -d infra --quiet
+
+  policy:
+    needs: scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Conftest
+        run: |
+          curl --fail --location --silent --show-error \
+            https://github.com/open-policy-agent/conftest/releases/download/v0.70.1/conftest_0.70.1_Linux_x86_64.tar.gz \
+            -o "$RUNNER_TEMP/conftest.tar.gz"
+          tar -xzf "$RUNNER_TEMP/conftest.tar.gz" -C "$RUNNER_TEMP" conftest
+          chmod +x "$RUNNER_TEMP/conftest"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - run: bash scripts/test-terraform-policy.sh
+
+  app-build-test-scan:
+    needs: policy
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      COMPOSE_PROJECT_NAME: insighthub-day3-${{ github.run_id }}
+      RAG_MODE: fixture
+      LLM_PROVIDER: fixture
+      EMBEDDING_PROVIDER: fixture
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+        with:
+          version: v3.22.0
+      - name: Build and start fixture application
+        run: docker compose up --build -d --wait
+      - name: Run application and verifier tests
+        run: |
+          python3 -m unittest discover -s tests -p 'test_verify*.py' -v
+          make test-backend
+          python3 scripts/verify.py smoke --json
+      - name: Tag the three tested images
+        run: |
+          docker tag "$(docker compose images -q api)" "insighthub-api:$GITHUB_SHA"
+          docker tag "$(docker compose images -q ingestion-worker)" "insighthub-worker:$GITHUB_SHA"
+          docker tag "$(docker compose images -q web)" "insighthub-web:$GITHUB_SHA"
+      - uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+        with:
+          version: v0.74.0
+      - name: Scan tested images for actionable high/critical vulnerabilities
+        run: |
+          scan_status=0
+          for component in api worker web; do
+            trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+              --exit-code 1 --format json --output "$RUNNER_TEMP/scan-$component.json" \
+              "insighthub-$component:$GITHUB_SHA" || scan_status=1
+          done
+          exit "$scan_status"
+      - name: Bind deployment descriptor to this source
+        run: |
+          mkdir -p "$RUNNER_TEMP/deployment"
+          helm lint helm/insighthub -f helm/insighthub/values-local.yaml
+          helm package helm/insighthub --destination "$RUNNER_TEMP/deployment"
+          helm template insighthub helm/insighthub -n insighthub-prod \
+            -f helm/insighthub/values-local.yaml \
+            --set-string "images.api.tag=$GITHUB_SHA" \
+            --set-string "images.worker.tag=$GITHUB_SHA" \
+            --set-string "images.web.tag=$GITHUB_SHA" \
+            > "$RUNNER_TEMP/deployment/rendered.yaml"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+
+          root = Path(os.environ['RUNNER_TEMP'])
+          source = subprocess.check_output(
+              ['python3', 'scripts/verify.py', 'fingerprint'], text=True
+          ).strip()
+          images = {
+              component: subprocess.check_output(
+                  ['docker', 'image', 'inspect', '--format', '{{.Id}}',
+                   f'insighthub-{component}:{os.environ["GITHUB_SHA"]}'], text=True
+              ).strip()
+              for component in ('api', 'worker', 'web')
+          }
+          (root / 'deployment' / 'build-manifest.json').write_text(
+              json.dumps({'source_sha256': source, 'git_sha': os.environ['GITHUB_SHA'],
+                          'images': images, 'environment': 'local-kind'}, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          PY
+          tar -czf "$RUNNER_TEMP/deployment.tar.gz" -C "$RUNNER_TEMP/deployment" .
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['RUNNER_TEMP'])
+          source = json.loads((root / 'deployment' / 'build-manifest.json').read_text())['source_sha256']
+          artifact = hashlib.sha256((root / 'deployment.tar.gz').read_bytes()).hexdigest()
+          (root / 'source-manifest.json').write_text(
+              json.dumps({'source_sha256': source, 'artifact_sha256': artifact}, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          print(f'Source SHA-256: {source}; deployment descriptor SHA-256: {artifact}')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: deployment
+          path: ${{ runner.temp }}/deployment.tar.gz
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: verification-source
+          path: ${{ runner.temp }}/source-manifest.json
+          retention-days: 14
+          if-no-files-found: error
+      - name: Save scan reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: app-image-scan
+          path: ${{ runner.temp }}/scan-*.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Remove only this CI Compose project
+        if: always()
+        run: docker compose --profile ollama down --volumes --remove-orphans
+
+  deploy-kind:
+    needs: app-build-test-scan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/prod/main' && github.repository == 'LongNgd/insighthub'
+    runs-on: [self-hosted, linux, insighthub-vpc]
+    timeout-minutes: 45
+    concurrency:
+      group: insighthub-local-kind
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
+        with:
+          version: v3.22.0
+      - name: Install pinned kind CLI for the existing cluster
+        run: |
+          curl --fail --location --silent --show-error \
+            https://github.com/kubernetes-sigs/kind/releases/download/v0.33.0/kind-linux-amd64 \
+            -o "$RUNNER_TEMP/kind"
+          echo 'aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d  '"$RUNNER_TEMP/kind" | sha256sum --check
+          chmod +x "$RUNNER_TEMP/kind"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Refuse an unexpected cluster or missing Docker
+        run: |
+          test "$(kubectl config current-context)" = kind-insighthub
+          kind get clusters | grep -Fx insighthub
+          kubectl get namespace insighthub-prod -o name
+          docker info --format '{{.ServerVersion}}'
+      - name: Build and load the reviewed commit into kind
+        run: |
+          docker build -t "insighthub-api:$GITHUB_SHA" ./api
+          docker build -t "insighthub-worker:$GITHUB_SHA" -f ingestion-worker/Dockerfile .
+          docker build -t "insighthub-web:$GITHUB_SHA" ./web
+          kind load docker-image --name insighthub \
+            "insighthub-api:$GITHUB_SHA" \
+            "insighthub-worker:$GITHUB_SHA" \
+            "insighthub-web:$GITHUB_SHA"
+      - name: Install chart and wait for all five components
+        run: |
+          python3 scripts/create-local-k8s-secret.py
+          helm lint helm/insighthub -f helm/insighthub/values-local.yaml
+          helm upgrade --install insighthub helm/insighthub -n insighthub-prod \
+            -f helm/insighthub/values-local.yaml \
+            --set-string "images.api.tag=$GITHUB_SHA" \
+            --set-string "images.worker.tag=$GITHUB_SHA" \
+            --set-string "images.web.tag=$GITHUB_SHA" \
+            --wait --timeout 8m
+          for workload in deployment/insighthub-api deployment/insighthub-worker deployment/insighthub-web statefulset/insighthub-postgres statefulset/insighthub-redis; do
+            kubectl rollout status "$workload" -n insighthub-prod --timeout=3m
+          done
+      - name: Smoke the deployed release through localhost port forwards
+        run: |
+          set -euo pipefail
+          kubectl port-forward -n insighthub-prod svc/insighthub-api 18081:8000 --address 127.0.0.1 > "$RUNNER_TEMP/api-port-forward.log" 2>&1 &
+          api_pid=$!
+          kubectl port-forward -n insighthub-prod svc/insighthub-web 13081:3000 --address 127.0.0.1 > "$RUNNER_TEMP/web-port-forward.log" 2>&1 &
+          web_pid=$!
+          trap 'kill "$api_pid" "$web_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18081/healthz >/dev/null && curl --fail --silent http://127.0.0.1:13081/api/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          python3 scripts/smoke-k8s-local.py \
+            --api-url http://127.0.0.1:18081 \
+            --web-url http://127.0.0.1:13081 \
+            --poll-timeout 30 > "$RUNNER_TEMP/kind-smoke.json"
+          python3 -c 'import json,os; print("Kind smoke:", json.load(open(os.environ["RUNNER_TEMP"] + "/kind-smoke.json"))["status"])'
+      - name: Record safe Kubernetes status and smoke evidence
+        if: always()
+        run: |
+          kubectl get pods,deploy,sts,svc -n insighthub-prod > "$RUNNER_TEMP/kind-status.txt" || true
+          helm status insighthub -n insighthub-prod > "$RUNNER_TEMP/kind-helm-status.txt" || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: local-kind-evidence
+          path: |
+            ${{ runner.temp }}/kind-smoke.json
+            ${{ runner.temp }}/kind-status.txt
+            ${{ runner.temp }}/kind-helm-status.txt
+          retention-days: 14
+          if-no-files-found: warn
+
+  plan:
+    needs: policy
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/prod/main'
+    runs-on: ${{ inputs.stage == 'namespace' && fromJSON('["self-hosted","linux","insighthub-vpc"]') || 'ubuntu-24.04' }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      plan_key: ${{ steps.store.outputs.plan_key }}
+      plan_version: ${{ steps.store.outputs.plan_version }}
+      plan_sha256: ${{ steps.store.outputs.plan_sha256 }}
+    env:
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
+      TF_VAR_vpc_id: ${{ vars.VPC_ID }}
+      TF_VAR_private_subnet_ids: ${{ vars.PRIVATE_SUBNET_IDS_JSON }}
+      TF_VAR_owner: ${{ vars.LAB_OWNER }}
+      TF_VAR_cost_center: ${{ vars.COST_CENTER }}
+      TF_VAR_lab_id: ${{ vars.LAB_ID }}
+      TF_VAR_expires_at: ${{ vars.EXPIRES_AT }}
+      TF_VAR_node_instance_type: ${{ vars.NODE_INSTANCE_TYPE }}
+      TF_VAR_db_instance_class: ${{ vars.DB_INSTANCE_CLASS }}
+      TF_VAR_cache_node_type: ${{ vars.CACHE_NODE_TYPE }}
+      TF_VAR_rotation_signed_s3_bucket: ${{ vars.ROTATION_SIGNED_S3_BUCKET }}
+      TF_VAR_rotation_signed_s3_key: ${{ vars.ROTATION_SIGNED_S3_KEY }}
+      TF_VAR_rotation_signed_s3_object_version: ${{ vars.ROTATION_SIGNED_S3_OBJECT_VERSION }}
+      TF_VAR_rotation_signing_profile_version_arn: ${{ vars.ROTATION_SIGNING_PROFILE_VERSION_ARN }}
+      TF_VAR_redis_auth_token: ${{ secrets.REDIS_AUTH_TOKEN }}
+      TF_VAR_manage_namespace: ${{ inputs.stage == 'namespace' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.TERRAFORM_PLAN_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Verify account and versioned, encrypted backend
+        env:
+          EXPECTED_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+          STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$EXPECTED_ACCOUNT"
+          test "$(aws s3api get-bucket-versioning --bucket "$STATE_BUCKET" --query Status --output text)" = Enabled
+          aws s3api get-bucket-encryption --bucket "$STATE_BUCKET" --query 'ServerSideEncryptionConfiguration.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm' --output text | grep -Eq '^aws:kms$|^AES256$'
+      - name: Install pinned Conftest
+        run: |
+          curl --fail --location --silent --show-error \
+            https://github.com/open-policy-agent/conftest/releases/download/v0.70.1/conftest_0.70.1_Linux_x86_64.tar.gz \
+            -o "$RUNNER_TEMP/conftest.tar.gz"
+          tar -xzf "$RUNNER_TEMP/conftest.tar.gz" -C "$RUNNER_TEMP" conftest
+          chmod +x "$RUNNER_TEMP/conftest"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Plan and check real plan policy
+        env:
+          STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          STATE_KEY: ${{ vars.TF_STATE_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          umask 077
+          terraform -chdir=infra init -input=false -lockfile=readonly \
+            -backend-config="bucket=$STATE_BUCKET" \
+            -backend-config="key=$STATE_KEY" \
+            -backend-config="region=$AWS_REGION"
+          terraform -chdir=infra plan -input=false -no-color -out="$RUNNER_TEMP/day3.tfplan"
+          bash scripts/test-terraform-policy-plan.sh "$RUNNER_TEMP/day3.tfplan"
+      - name: Store immutable plan reference in S3
+        id: store
+        env:
+          STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          PLAN_KEY="insighthub-prod/ci-plans/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/${GITHUB_SHA}/${{ inputs.stage }}.tfplan"
+          PLAN_SHA256=$(sha256sum "$RUNNER_TEMP/day3.tfplan" | cut -d ' ' -f 1)
+          PLAN_VERSION=$(aws s3api put-object --bucket "$STATE_BUCKET" --key "$PLAN_KEY" --body "$RUNNER_TEMP/day3.tfplan" --query VersionId --output text)
+          test -n "$PLAN_VERSION" && test "$PLAN_VERSION" != None
+          printf 'plan_key=%s\nplan_version=%s\nplan_sha256=%s\n' "$PLAN_KEY" "$PLAN_VERSION" "$PLAN_SHA256" >> "$GITHUB_OUTPUT"
+          printf '### Terraform plan for approval\n\nStage: `%s`  \nCommit: `%s`  \nS3 version: `%s`  \nSHA-256: `%s`\n\nReview the plan job log and cost job before approving apply.\n' \
+            '${{ inputs.stage }}' "$GITHUB_SHA" "$PLAN_VERSION" "$PLAN_SHA256" >> "$GITHUB_STEP_SUMMARY"
+
+  cost:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+      TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
+      TF_VAR_vpc_id: ${{ vars.VPC_ID }}
+      TF_VAR_private_subnet_ids: ${{ vars.PRIVATE_SUBNET_IDS_JSON }}
+      TF_VAR_owner: ${{ vars.LAB_OWNER }}
+      TF_VAR_cost_center: ${{ vars.COST_CENTER }}
+      TF_VAR_lab_id: ${{ vars.LAB_ID }}
+      TF_VAR_expires_at: ${{ vars.EXPIRES_AT }}
+      TF_VAR_node_instance_type: ${{ vars.NODE_INSTANCE_TYPE }}
+      TF_VAR_db_instance_class: ${{ vars.DB_INSTANCE_CLASS }}
+      TF_VAR_cache_node_type: ${{ vars.CACHE_NODE_TYPE }}
+      TF_VAR_rotation_signed_s3_bucket: ${{ vars.ROTATION_SIGNED_S3_BUCKET }}
+      TF_VAR_rotation_signed_s3_key: ${{ vars.ROTATION_SIGNED_S3_KEY }}
+      TF_VAR_rotation_signed_s3_object_version: ${{ vars.ROTATION_SIGNED_S3_OBJECT_VERSION }}
+      TF_VAR_rotation_signing_profile_version_arn: ${{ vars.ROTATION_SIGNING_PROFILE_VERSION_ARN }}
+      TF_VAR_manage_namespace: ${{ inputs.stage == 'namespace' }}
+      TF_VAR_redis_auth_token: cost-estimate-placeholder-only
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: infracost/actions/setup@e9d6e6cd65e168e76b0de50ff9957d2fe8bb1832 # v3.0.1
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+          version: 0.10.40
+      - name: Estimate bounded lab cost from Terraform HCL
+        env:
+          LAB_HOURS: ${{ inputs.lab_hours }}
+          MAX_LAB_USD: ${{ vars.MAX_LAB_USD }}
+        run: |
+          infracost breakdown --path infra --format json --out-file "$RUNNER_TEMP/cost.json"
+          python3 - "$RUNNER_TEMP/cost.json" "$LAB_HOURS" "$MAX_LAB_USD" <<'PY'
+          import json
+          import sys
+          from decimal import Decimal
+
+          with open(sys.argv[1], encoding='utf-8') as stream:
+              report = json.load(stream)
+          monthly = Decimal(str(report['totalMonthlyCost']))
+          hours = Decimal(sys.argv[2])
+          limit = Decimal(sys.argv[3])
+          if hours <= 0 or limit <= 0 or monthly <= 0 or not report.get('projects'):
+              raise SystemExit('Invalid cost input or empty Infracost estimate')
+          estimate = monthly * hours / Decimal(730)
+          print(f'Estimated monthly: ${monthly:.2f}; {hours}h lab: ${estimate:.2f}; cap: ${limit:.2f}')
+          with open(__import__('os').environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+              summary.write(f'### Infracost HCL estimate\n\nMonthly: ${monthly:.2f}  \n{hours}h lab: ${estimate:.2f}  \nCap: ${limit:.2f}\n')
+          if estimate > limit:
+              raise SystemExit('Cost estimate exceeds lab cap')
+          PY
+
+  apply:
+    needs: [plan, cost]
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/prod/main'
+    runs-on: ${{ inputs.stage == 'namespace' && fromJSON('["self-hosted","linux","insighthub-vpc"]') || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    environment: insighthub-prod
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.TERRAFORM_APPLY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Verify account and retrieve reviewed plan
+        env:
+          EXPECTED_ACCOUNT: ${{ vars.AWS_ACCOUNT_ID }}
+          STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          PLAN_KEY: ${{ needs.plan.outputs.plan_key }}
+          PLAN_VERSION: ${{ needs.plan.outputs.plan_version }}
+          PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
+        run: |
+          umask 077
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$EXPECTED_ACCOUNT"
+          aws s3api get-object --bucket "$STATE_BUCKET" --key "$PLAN_KEY" --version-id "$PLAN_VERSION" "$RUNNER_TEMP/day3.tfplan" >/dev/null
+          echo "$PLAN_SHA256  $RUNNER_TEMP/day3.tfplan" | sha256sum --check --status
+      - name: Apply saved plan
+        env:
+          STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          STATE_KEY: ${{ vars.TF_STATE_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          terraform -chdir=infra init -input=false -lockfile=readonly \
+            -backend-config="bucket=$STATE_BUCKET" \
+            -backend-config="key=$STATE_KEY" \
+            -backend-config="region=$AWS_REGION"
+          terraform -chdir=infra apply -input=false -no-color "$RUNNER_TEMP/day3.tfplan"

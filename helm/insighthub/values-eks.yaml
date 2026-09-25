@@ -1,0 +1,12 @@
+# EKS uses RDS/ElastiCache and an existing IRSA ServiceAccount from Terraform.
+# The external Secret must provide database-url and redis-url, including TLS.
+postgres:
+  enabled: false
+redis:
+  enabled: false
+serviceAccount:
+  create: false
+  name: insighthub
+  automountToken: true
+app:
+  existingSecret: insighthub-runtime

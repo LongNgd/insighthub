@@ -1,0 +1,6 @@
+apiVersion: v2
+name: insighthub
+description: InsightHub web, API and async worker with optional local data services
+type: application
+version: 0.1.0
+appVersion: "0.2.3"
