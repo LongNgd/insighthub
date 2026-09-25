@@ -1,0 +1,21 @@
+NAME                                     READY   STATUS    RESTARTS        AGE
+pod/insighthub-api-65755d798f-nntsk      1/1     Running   0               11s
+pod/insighthub-postgres-0                1/1     Running   0               4h14m
+pod/insighthub-redis-0                   1/1     Running   2 (4h51m ago)   26h
+pod/insighthub-web-84d9fb9596-b59nw      1/1     Running   0               11s
+pod/insighthub-worker-648c984d7f-cgglj   1/1     Running   0               11s
+
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/insighthub-api      1/1     1            1           26h
+deployment.apps/insighthub-web      1/1     1            1           26h
+deployment.apps/insighthub-worker   1/1     1            1           26h
+
+NAME                                   READY   AGE
+statefulset.apps/insighthub-postgres   1/1     26h
+statefulset.apps/insighthub-redis      1/1     26h
+
+NAME                          TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+service/insighthub-api        ClusterIP   10.96.221.223   <none>        8000/TCP   26h
+service/insighthub-postgres   ClusterIP   None            <none>        5432/TCP   26h
+service/insighthub-redis      ClusterIP   None            <none>        6379/TCP   26h
+service/insighthub-web        ClusterIP   10.96.6.191     <none>        3000/TCP   26h
