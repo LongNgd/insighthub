@@ -1,0 +1,6 @@
+NAME: insighthub
+LAST DEPLOYED: Fri Sep 25 07:15:25 2026
+NAMESPACE: insighthub-prod
+STATUS: deployed
+REVISION: 7
+TEST SUITE: None
