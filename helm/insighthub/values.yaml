@@ -47,6 +47,37 @@ web:
       cpu: 500m
       memory: 512Mi
 
+monitoring:
+  serviceMonitor:
+    enabled: false
+    additionalLabels: {}
+    interval: 15s
+    scrapeTimeout: 5s
+  worker:
+    enabled: false
+    port: 9101
+  exporters:
+    postgres:
+      enabled: false
+      image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
+      resources:
+        requests:
+          cpu: 20m
+          memory: 32Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
+    redis:
+      enabled: false
+      image: oliver006/redis_exporter:v1.92.0@sha256:ca3abd5f19da6c87e96038ba08aaa3dfaab34dc649834584c4d6880b05952fef
+      resources:
+        requests:
+          cpu: 20m
+          memory: 32Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
+
 postgres:
   enabled: true
   image: pgvector/pgvector:0.8.2-pg16@sha256:00ba258a66dac104fd5171074a0084462a64a1369d8513f3d0a634e2f24d15bc

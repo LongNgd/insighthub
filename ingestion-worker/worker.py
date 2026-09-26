@@ -8,6 +8,7 @@ from typing import Any
 from arq import Retry
 from arq.connections import RedisSettings
 from arq.logs import default_log_config
+from prometheus_client import Counter, Gauge, start_http_server
 
 from app.core.config import get_settings
 from app.core.db import close_pool, initialize_database
@@ -18,6 +19,15 @@ from app.services.ingestion import process_document
 # representation includes uploaded bytes, so suppress ARQ INFO at the source.
 SAFE_LOG_CONFIG = default_log_config(False)
 SAFE_LOG_CONFIG["loggers"]["arq"]["level"] = "WARNING"
+
+worker_ready = Gauge("insighthub_worker_ready", "ARQ worker startup completed")
+worker_jobs_total = Counter(
+    "insighthub_worker_jobs_total",
+    "Ingestion job attempts by bounded outcome",
+    ["outcome"],
+)
+for outcome in ("ready", "retry", "failed", "deleted"):
+    worker_jobs_total.labels(outcome)
 
 def _log(event: str, document_id: int, status: str, attempt: int, error_code: str | None = None) -> None:
     record: dict[str, Any] = {
@@ -32,11 +42,23 @@ def _log(event: str, document_id: int, status: str, attempt: int, error_code: st
     print(json.dumps(record, ensure_ascii=False), flush=True)
 
 
-async def startup(_: dict[str, Any]) -> None:
+async def startup(ctx: dict[str, Any]) -> None:
     await asyncio.to_thread(initialize_database)
+    port = get_settings().worker_metrics_port
+    if port:
+        server, thread = start_http_server(port)
+        ctx["metrics_server"] = (server, thread)
+        worker_ready.set(1)
 
 
-async def shutdown(_: dict[str, Any]) -> None:
+async def shutdown(ctx: dict[str, Any]) -> None:
+    worker_ready.set(0)
+    metrics_server = ctx.pop("metrics_server", None)
+    if metrics_server is not None:
+        server, thread = metrics_server
+        server.shutdown()
+        server.server_close()
+        thread.join()
     await asyncio.to_thread(close_pool)
 
 
@@ -55,17 +77,22 @@ async def process_document_job(
             retryable_failure=not final_attempt,
         )
     except DocumentNotFound:
+        worker_jobs_total.labels("deleted").inc()
         _log("ingestion_deleted", document_id, "deleted", attempt)
         return 0
     except ProviderError as exc:
         if not final_attempt:
+            worker_jobs_total.labels("retry").inc()
             _log("ingestion_retry_scheduled", document_id, "pending", attempt, exc.code)
             raise Retry(defer=2 ** (attempt - 1)) from None
+        worker_jobs_total.labels("failed").inc()
         _log("ingestion_failed", document_id, "failed", attempt, exc.code)
         raise
     except ServiceError as exc:
+        worker_jobs_total.labels("failed").inc()
         _log("ingestion_failed", document_id, "failed", attempt, exc.code)
         raise
+    worker_jobs_total.labels("ready").inc()
     _log("ingestion_completed", document_id, "ready", attempt)
     return chunk_count
 

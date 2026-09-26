@@ -4,6 +4,7 @@ metadata:
   name: {{ include "insighthub.fullname" . }}-api
   labels:
     {{- include "insighthub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
 spec:
   ports:
     - name: http

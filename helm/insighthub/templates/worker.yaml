@@ -1,3 +1,21 @@
+{{- if .Values.monitoring.worker.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "insighthub.fullname" . }}-worker
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  ports:
+    - name: metrics
+      port: {{ .Values.monitoring.worker.port }}
+      targetPort: metrics
+  selector:
+    {{- include "insighthub.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+---
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,6 +46,11 @@ spec:
         - name: worker
           image: {{ include "insighthub.image" .Values.images.worker | quote }}
           imagePullPolicy: {{ .Values.images.worker.pullPolicy }}
+          {{- if .Values.monitoring.worker.enabled }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.monitoring.worker.port }}
+          {{- end }}
           envFrom:
             - configMapRef:
                 name: {{ include "insighthub.fullname" . }}-app
@@ -42,6 +65,10 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.app.existingSecret }}
                   key: {{ .Values.app.redisUrlKey }}
+            {{- if .Values.monitoring.worker.enabled }}
+            - name: WORKER_METRICS_PORT
+              value: {{ .Values.monitoring.worker.port | quote }}
+            {{- end }}
           readinessProbe:
             exec:
               command:
