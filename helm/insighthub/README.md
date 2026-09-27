@@ -76,6 +76,29 @@ Sau approval riêng cho kind, nâng cấp chart cùng tag image API/worker vừa
 
 Deploy annotations lấy timestamp của Helm release thực tế từ `helm history insighthub -n insighthub-prod -o json`, rồi gọi Grafana Annotations API bằng `python scripts/annotate-day4-deploy.py --grafana-url http://127.0.0.1:13001 --revision <revision> --time <RFC3339 timestamp>`. Script đọc `GRAFANA_API_TOKEN` hoặc `GRAFANA_USER`/`GRAFANA_PASSWORD` từ environment, không nhận credential qua CLI và chỉ in ID/time của annotation. Không chạy script trước khi dashboard được provision và được duyệt ghi lên kind. Dashboard bật annotation layer `Deploys` để marker xuất hiện trên đồ thị; chọn time range bao gồm timestamp release khi chụp ảnh.
 
+### Day 4: recording rules và anomaly alerts
+
+`values-local.yaml` bật `PrometheusRule` tên `insighthub-day4-anomaly` trong `insighthub-prod`, gắn `release: kube-prom-stack` theo `ruleSelector` của Prometheus Operator local. Chart mặc định tắt rules; đổi `monitoring.rules.additionalLabels` khi Prometheus chọn nhãn khác. File `files/day4-anomaly-rules.yaml` là nguồn chung cho Helm và `promtool`; không sửa riêng rendered manifest. Rule gộp theo `namespace`, không mang nhãn route, document, provider hoặc user vào output.
+
+| Tín hiệu | Recording rule hiện tại | Band và alert | Điều kiện bổ sung |
+| --- | --- | --- | --- |
+| LLM p95 | `insighthub:llm_latency_p95_seconds:current` từ `insighthub_llm_call_latency_seconds_bucket` | `band_lower`, `band_upper`; `InsightHubLLMLatencyAnomaly` | p95 > 0.5 giây; ít nhất 5 calls/5 phút |
+| ARQ entries | `insighthub:queue_entries:current` từ `insighthub_worker_queue_entries` | `band_lower`, `band_upper`; `InsightHubQueueDepthAnomaly` | depth ≥ 3; `insighthub_worker_queue_probe_success=1` |
+| HTTP 5xx % | `insighthub:http_5xx_percent:current` từ `insighthub_http_requests_total` | `band_lower`, `band_upper`; `InsightHubHTTP5xxAnomaly` | tỷ lệ > 2%; ít nhất 20 requests/5 phút, bỏ `/metrics` |
+
+Mỗi tín hiệu có thêm recording rule `baseline_ready`. Band dùng trung bình ± 3 độ lệch chuẩn của các giá trị hiện tại trong 1 giờ, bỏ 5 phút mới nhất; độ rộng tối thiểu lần lượt là 0.25 giây, 2 entries và 1 điểm phần trăm. Cận dưới không nhỏ hơn 0. `baseline_ready=1` cần ít nhất 55 mẫu hợp lệ trong cửa sổ 1 giờ và có mẫu cũ ít nhất 65 phút; do đó cần tối thiểu 1 giờ lịch sử trước khi có alert. Mỗi alert cần vượt cận trên liên tục 5 phút. Khi thiếu baseline, thiếu metric, không có traffic hoặc queue probe thất bại, alert liên quan không fire. Một số ít lượt gọi LLM rải rác có thể chưa tạo đủ 55 mẫu p95; cần workload thật đủ đều trong hơn 1 giờ để xác nhận alert runtime. Queue depth là `ZCARD` của ARQ sorted set, bao gồm job queued, deferred và in-progress.
+
+Kiểm tra tĩnh trong WSL tại repo root sau khi kích hoạt `.venv`:
+
+```sh
+docker run --rm -v "$(pwd)/helm/insighthub/files:/rules:ro" --entrypoint promtool prom/prometheus:v3.14.0 check rules /rules/day4-anomaly-rules.yaml
+docker run --rm -v "$(pwd)/helm/insighthub/files:/rules:ro" --entrypoint promtool prom/prometheus:v3.14.0 test rules /rules/day4-anomaly-rules.test.yaml
+helm lint helm/insighthub -f helm/insighthub/values-local.yaml
+helm template insighthub helm/insighthub -n insighthub-prod -f helm/insighthub/values-local.yaml > /tmp/insighthub-day4-rules-rendered.yaml
+```
+
+Sau khi được duyệt áp dụng lên kind, kiểm tra `kubectl get prometheusrule insighthub-day4-anomaly -n insighthub-prod`, Prometheus `/api/v1/rules` (rule group có `health: ok`) và truy vấn các rule `*:current`, `*:baseline_ready`, `*:band_upper`, `*:band_lower`. Dùng `kubectl -n monitoring port-forward svc/kube-prom-stack-kube-prome-prometheus 19090:9090 --address 127.0.0.1` để truy vấn `http://127.0.0.1:19090/api/v1/query`; đối chiếu source metric và `baseline_ready=1` trước khi mong đợi alert. `promtool test rules` chỉ kiểm chứng chuỗi mô phỏng; không chứng minh alert đã fire trên Prometheus thật hoặc đã gửi notification. Không cấu hình Alertmanager/Slack hoặc tạo incident trong bước này.
+
 ## Chuyển sang EKS
 
 `values-eks.yaml` tắt PostgreSQL và Redis trong chart, dùng RDS/ElastiCache qua `DATABASE_URL`/`REDIS_URL` ở Secret ngoài chart, và tham chiếu ServiceAccount `insighthub` do Terraform/IRSA tạo. Cần cấu hình image registry/digest, provider thật, TLS và cơ chế đồng bộ Secret từ Secrets Manager trước khi deploy. HTTPS ingress và smoke trên URL thật nằm ở bước AWS riêng. Không đưa credential vào values, log hoặc evidence.

@@ -50,6 +50,9 @@ web:
 monitoring:
   dashboard:
     enabled: false
+  rules:
+    enabled: false
+    additionalLabels: {}
   serviceMonitor:
     enabled: false
     additionalLabels: {}

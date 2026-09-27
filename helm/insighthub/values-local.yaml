@@ -9,6 +9,10 @@ serviceAccount:
 monitoring:
   dashboard:
     enabled: true
+  rules:
+    enabled: true
+    additionalLabels:
+      release: kube-prom-stack
   serviceMonitor:
     enabled: true
     additionalLabels:

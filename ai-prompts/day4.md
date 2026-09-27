@@ -117,3 +117,70 @@ Hoàn thành dashboard Grafana cho Day 4 của InsightHub: ít nhất 9 panel g�
 - Bổ sung histogram HTTP, gauge ARQ queue và metric token/cost có nhãn nguồn đo; không đổi API contract, DB schema hoặc luồng ingestion. Queue `ZCARD` gồm job đang chờ, trì hoãn và đang xử lý. Cost fixture bằng 0 sau chat thật; real provider cần đơn giá cấu hình và cost vẫn là ước tính.
 - `helm lint` và `helm template` PASS; 40 API unit tests và 1 worker metrics test PASS. Kind smoke upload `202`, xử lý `ready` và chat thành công. Helm revision 14 `deployed`; năm Prometheus target `UP`, mỗi panel có ít nhất một truy vấn trả sample, Grafana không hiển thị “No data”. Annotation revision 14 xuất hiện tại timestamp phát hành; URL, ảnh chụp, PromQL và lệnh kiểm tra lại nằm trong [evidence dashboard trên kind](../evidence/day4-kind-dashboard.md).
 - Giới hạn: đây là xác minh kind với fixture, không phải EKS hoặc billing của provider thật. Không triển khai alert, anomaly hay RCA trong prompt này.
+
+## Prompt 3 - Recording rules và anomaly alerts
+
+**Host**: ChatGPT-Codex
+
+**Model**: GPT-6 Sol
+
+**Ngày ghi log**: 27/09/2026 (+07:00)
+
+**Context / Evidence**: [AGENTS.md](../AGENTS.md), [Running Project Specification](../Running-Project-Specification-Student.md), [Day 4 lab guide](../docs/lab-guides/Day4-AIOps-Observability.md), [rule YAML](../helm/insighthub/files/day4-anomaly-rules.yaml), [promtool tests](../helm/insighthub/files/day4-anomaly-rules.test.yaml), [PrometheusRule template](../helm/insighthub/templates/prometheusrule-day4.yaml), [Helm chart README](../helm/insighthub/README.md).
+
+**Prompt gốc**:
+
+```text
+## 1. Mục tiêu (Goal)
+
+Tạo recording rules và anomaly alert rules cho **LLM latency, queue depth và HTTP error rate** trong phần Day 4 của InsightHub. Kiểm tra cú pháp và hành vi của rules bằng `promtool`.
+
+## 2. Ràng buộc (Constraints - PHẢI TUÂN THỦ)
+
+- Đọc specification Day 4, metric hiện có và cấu hình Prometheus/Helm trước khi thiết kế rule.
+- Dùng metric thực tế của dự án: histogram `insighthub_llm_call_latency_seconds_bucket`, gauge `insighthub_worker_queue_entries` cùng `insighthub_worker_queue_probe_success`, và counter `insighthub_http_requests_total`.
+- Baseline cho lab phải có **ít nhất 1 giờ dữ liệu**; thiếu baseline hoặc thiếu metric thì không được báo anomaly như thể đã đủ dữ liệu.
+- Queue depth là số entry trong ARQ sorted set, bao gồm job deferred và in-progress; không diễn giải nó là số job chỉ đang chờ.
+- Giữ nhãn metric có cardinality giới hạn. Không đưa secret, nội dung tài liệu hoặc dữ liệu người dùng vào rule hay evidence.
+- Không sửa API contract, DB schema hoặc pipeline ingestion để làm rule hoạt động. Giới hạn thay đổi trong cấu hình observability/Helm và test liên quan, trừ khi chứng minh được phạm vi khác là cần thiết.
+- Không triển khai lên cluster, cấu hình Slack hoặc tạo incident thật khi chưa có approval riêng. Không coi `promtool` PASS là bằng chứng alert đã fire trên hệ thống thật.
+- Chạy mọi lệnh terminal qua WSL tại repo root; kích hoạt `.venv` hiện có trước khi chạy lệnh.
+
+## 3. Tiêu chí thành công (Acceptance Criteria)
+
+- Có recording rule cho giá trị hiện tại và anomaly band của cả ba tín hiệu: LLM latency p95, queue depth, tỷ lệ HTTP 5xx.
+- Có ba alert rule tương ứng, với điều kiện duy trì đủ lâu để hạn chế alert flapping.
+- Rule xử lý đúng trường hợp chưa đủ baseline, không có traffic hoặc queue probe thất bại.
+- `promtool check rules` PASS.
+- `promtool test rules` PASS với dữ liệu mô phỏng ít nhất ba trạng thái: baseline bình thường, spike của từng tín hiệu và thời điểm alert phải fire. Test cũng xác nhận không fire khi chưa đủ baseline.
+- Nếu sửa Helm chart, `helm lint` và `helm template` PASS; rendered manifest chứa `PrometheusRule` với selector/label phù hợp cấu hình monitoring local.
+- Báo cáo rõ những gì đã kiểm tra bằng dữ liệu mô phỏng và những gì còn cần kiểm tra trên Prometheus thật.
+
+## 4. Ví dụ pattern tham chiếu (Reference)
+
+- Yêu cầu Day 4: `Running-Project-Specification-Student.md`, mục 8; `docs/lab-guides/Day4-AIOps-Observability.md`.
+- Metric nguồn: `api/app/core/metrics.py`, `api/app/main.py`, `ingestion-worker/worker.py`.
+- Cấu hình monitoring hiện có: `observability/`, `helm/insighthub/values.yaml`, `helm/insighthub/values-local.yaml` và các template `ServiceMonitor`.
+- Contract kiểm chứng: `scripts/VERIFICATION_CONTRACT.md`.
+
+## 5. Quy trình thực hiện (Process / Output Expected)
+
+- Trước tiên, trình bày **PLAN**: metric và PromQL dự kiến cho từng tín hiệu, cách tính baseline/band, vị trí file sẽ sửa và các test sẽ chạy.
+- **ĐỢI TÔI DUYỆT PLAN rồi mới sửa file.**
+- Sau khi được duyệt, thực hiện thay đổi theo phạm vi đã thống nhất; review diff và chạy `promtool check rules`, `promtool test rules`, cùng kiểm tra Helm nếu có sửa chart.
+- Báo cáo file đã đổi, kết quả từng lệnh kiểm tra, cách kiểm chứng thủ công trên Prometheus và các giới hạn chưa được xác minh.
+```
+
+**Vì sao prompt hiệu quả**:
+
+- Chỉ rõ ba metric nguồn và định nghĩa queue `ZCARD`, tránh suy diễn queue depth là số job chỉ đang chờ.
+- Buộc anomaly phải có baseline ít nhất một giờ, có điều kiện cho traffic và probe, đồng thời kiểm tra thời điểm alert fire bằng dữ liệu mô phỏng.
+- Tách kiểm chứng cú pháp/hành vi bằng `promtool` khỏi bằng chứng alert đã fire trên Prometheus thật; yêu cầu duyệt riêng trước mutation cluster.
+
+**Quyết định / Review**:
+
+- Người dùng duyệt kế hoạch sửa file rồi duyệt riêng việc áp dụng rule lên context `kind-insighthub`, namespace `insighthub-prod`.
+- Chấp nhận 12 recording rule (giá trị hiện tại, `baseline_ready`, cận trên và cận dưới cho từng tín hiệu) cùng ba alert yêu cầu vượt band liên tục 5 phút. Rule gộp nhãn theo namespace; không đổi API contract, DB schema hoặc pipeline ingestion.
+- `promtool check rules` PASS với 15 rule; `promtool test rules` PASS cho baseline bình thường, spike từng tín hiệu, thời điểm fire, thiếu baseline, không có traffic và queue probe lỗi. `helm lint`, `helm template` và `git diff --check` PASS; manifest render đúng namespace `insighthub-prod` và nhãn `release: kube-prom-stack`.
+- Helm release `insighthub` revision 15 ở trạng thái `deployed`; `kubectl get prometheusrule` thấy `insighthub-day4-anomaly`. Prometheus `/api/v1/rules` nạp đủ 15 rule với `health: ok`; recording sample thực có cho LLM p95, queue depth và HTTP 5xx sau một chat fixture kiểm tra.
+- Giới hạn: lần kiểm tra runtime gần nhất chưa có `baseline_ready` cho cả ba tín hiệu, nên chưa có bằng chứng anomaly alert fire trên Prometheus thật. Không tạo spike, incident, Slack notification hoặc triển khai EKS trong prompt này.

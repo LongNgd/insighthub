@@ -1,0 +1,214 @@
+rule_files:
+  - day4-anomaly-rules.yaml
+evaluation_interval: 1m
+tests:
+  - name: normal-baseline-and-one-hour-gate
+    interval: 1m
+    input_series:
+      - series: 'insighthub_llm_call_latency_seconds_bucket{namespace="insighthub-prod",le="0.25"}'
+        values: '0+0x95'
+      - series: 'insighthub_llm_call_latency_seconds_bucket{namespace="insighthub-prod",le="0.5"}'
+        values: '0+1x95'
+      - series: 'insighthub_llm_call_latency_seconds_bucket{namespace="insighthub-prod",le="1"}'
+        values: '0+1x95'
+      - series: 'insighthub_llm_call_latency_seconds_bucket{namespace="insighthub-prod",le="+Inf"}'
+        values: '0+1x95'
+      - series: 'insighthub_worker_queue_entries{namespace="insighthub-prod"}'
+        values: '0x95'
+      - series: 'insighthub_worker_queue_probe_success{namespace="insighthub-prod"}'
+        values: '1x95'
+      - series: 'insighthub_http_requests_total{namespace="insighthub-prod",endpoint="/chat",status="200"}'
+        values: '0+20x95'
+    promql_expr_test:
+      - expr: 'insighthub:queue_entries:baseline_ready == 1'
+        eval_time: 60m
+        exp_samples: []
+      - expr: 'insighthub:llm_latency_p95_seconds:baseline_ready'
+        eval_time: 75m
+        exp_samples:
+          - labels: 'insighthub:llm_latency_p95_seconds:baseline_ready{namespace="insighthub-prod"}'
+            value: 1
+      - expr: 'count(insighthub:llm_latency_p95_seconds:band_upper)'
+        eval_time: 75m
+        exp_samples:
+          - labels: '{}'
+            value: 1
+      - expr: 'insighthub:queue_entries:baseline_ready'
+        eval_time: 75m
+        exp_samples:
+          - labels: 'insighthub:queue_entries:baseline_ready{namespace="insighthub-prod"}'
+            value: 1
+      - expr: 'insighthub:queue_entries:band_upper'
+        eval_time: 75m
+        exp_samples:
+          - labels: 'insighthub:queue_entries:band_upper{namespace="insighthub-prod"}'
+            value: 2
+      - expr: 'insighthub:http_5xx_percent:current'
+        eval_time: 75m
+        exp_samples:
+          - labels: 'insighthub:http_5xx_percent:current{namespace="insighthub-prod"}'
+            value: 0
+      - expr: 'insighthub:http_5xx_percent:baseline_ready'
+        eval_time: 75m
+        exp_samples:
+          - labels: 'insighthub:http_5xx_percent:baseline_ready{namespace="insighthub-prod"}'
+            value: 1
+      - expr: 'insighthub:http_5xx_percent:band_upper'
+        eval_time: 75m
+        exp_samples:
+          - labels: 'insighthub:http_5xx_percent:band_upper{namespace="insighthub-prod"}'
+            value: 1
+    alert_rule_test:
+      - eval_time: 75m
+        alertname: InsightHubLLMLatencyAnomaly
+        exp_alerts: []
+      - eval_time: 75m
+        alertname: InsightHubQueueDepthAnomaly
+        exp_alerts: []
+      - eval_time: 75m
+        alertname: InsightHubHTTP5xxAnomaly
+        exp_alerts: []
+
+  - name: llm-latency-spike-fires-after-five-minutes
+    interval: 1m
+    input_series:
+      - series: 'insighthub_llm_call_latency_seconds_bucket{namespace="insighthub-prod",le="0.25"}'
+        values: '0+0x96'
+      - series: 'insighthub_llm_call_latency_seconds_bucket{namespace="insighthub-prod",le="0.5"}'
+        values: '0+1x75 75+0x20'
+      - series: 'insighthub_llm_call_latency_seconds_bucket{namespace="insighthub-prod",le="1"}'
+        values: '0+1x75 75+0x20'
+      - series: 'insighthub_llm_call_latency_seconds_bucket{namespace="insighthub-prod",le="2.5"}'
+        values: '0+1x75 75+0x20'
+      - series: 'insighthub_llm_call_latency_seconds_bucket{namespace="insighthub-prod",le="5"}'
+        values: '0+1x96'
+      - series: 'insighthub_llm_call_latency_seconds_bucket{namespace="insighthub-prod",le="+Inf"}'
+        values: '0+1x96'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: InsightHubLLMLatencyAnomaly
+        exp_alerts: []
+      - eval_time: 80m
+        alertname: InsightHubLLMLatencyAnomaly
+        exp_alerts: []
+      - eval_time: 81m
+        alertname: InsightHubLLMLatencyAnomaly
+        exp_alerts:
+          - exp_labels:
+              namespace: insighthub-prod
+              severity: warning
+            exp_annotations:
+              summary: InsightHub LLM p95 latency exceeds its one-hour band
+              description: LLM p95 latency stayed above the historical band with sufficient call volume.
+
+  - name: queue-spike-fires-after-five-minutes
+    interval: 1m
+    input_series:
+      - series: 'insighthub_worker_queue_entries{namespace="insighthub-prod"}'
+        values: '0x75 5x20'
+      - series: 'insighthub_worker_queue_probe_success{namespace="insighthub-prod"}'
+        values: '1x96'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: InsightHubQueueDepthAnomaly
+        exp_alerts: []
+      - eval_time: 80m
+        alertname: InsightHubQueueDepthAnomaly
+        exp_alerts: []
+      - eval_time: 81m
+        alertname: InsightHubQueueDepthAnomaly
+        exp_alerts:
+          - exp_labels:
+              namespace: insighthub-prod
+              severity: warning
+            exp_annotations:
+              summary: InsightHub ARQ queue entries exceed their one-hour band
+              description: ARQ sorted-set entries include queued, deferred, and in-progress jobs; the probe is healthy.
+
+  - name: http-5xx-spike-fires-after-five-minutes
+    interval: 1m
+    input_series:
+      - series: 'insighthub_http_requests_total{namespace="insighthub-prod",endpoint="/chat",status="200"}'
+        values: '0+20x96'
+      - series: 'insighthub_http_requests_total{namespace="insighthub-prod",endpoint="/chat",status="500"}'
+        values: '0+0x75 10+10x20'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: InsightHubHTTP5xxAnomaly
+        exp_alerts: []
+      - eval_time: 80m
+        alertname: InsightHubHTTP5xxAnomaly
+        exp_alerts: []
+      - eval_time: 81m
+        alertname: InsightHubHTTP5xxAnomaly
+        exp_alerts:
+          - exp_labels:
+              namespace: insighthub-prod
+              severity: warning
+            exp_annotations:
+              summary: InsightHub HTTP 5xx rate exceeds its one-hour band
+              description: The 5xx percentage stayed above the historical band with sufficient request volume.
+
+  - name: no-alert-with-short-baseline
+    interval: 1m
+    input_series:
+      - series: 'insighthub_worker_queue_entries{namespace="insighthub-prod"}'
+        values: '0x54 5x20'
+      - series: 'insighthub_worker_queue_probe_success{namespace="insighthub-prod"}'
+        values: '1x75'
+    promql_expr_test:
+      - expr: 'insighthub:queue_entries:baseline_ready == 1'
+        eval_time: 60m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: InsightHubQueueDepthAnomaly
+        exp_alerts: []
+
+  - name: failed-queue-probe-suppresses-spike
+    interval: 1m
+    input_series:
+      - series: 'insighthub_worker_queue_entries{namespace="insighthub-prod"}'
+        values: '0x75 5x20'
+      - series: 'insighthub_worker_queue_probe_success{namespace="insighthub-prod"}'
+        values: '1x76 0x20'
+    promql_expr_test:
+      - expr: 'insighthub:queue_entries:current'
+        eval_time: 82m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 82m
+        alertname: InsightHubQueueDepthAnomaly
+        exp_alerts: []
+
+  - name: no-http-traffic-suppresses-ratio
+    interval: 1m
+    input_series:
+      - series: 'insighthub_http_requests_total{namespace="insighthub-prod",endpoint="/chat",status="200"}'
+        values: '0+20x75 1500+0x20'
+    promql_expr_test:
+      - expr: 'insighthub:http_5xx_percent:current'
+        eval_time: 82m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 82m
+        alertname: InsightHubHTTP5xxAnomaly
+        exp_alerts: []
+
+  - name: no-llm-traffic-suppresses-p95
+    interval: 1m
+    input_series:
+      - series: 'insighthub_llm_call_latency_seconds_bucket{namespace="insighthub-prod",le="0.25"}'
+        values: '0+0x96'
+      - series: 'insighthub_llm_call_latency_seconds_bucket{namespace="insighthub-prod",le="0.5"}'
+        values: '0+1x75 75+0x20'
+      - series: 'insighthub_llm_call_latency_seconds_bucket{namespace="insighthub-prod",le="+Inf"}'
+        values: '0+1x75 75+0x20'
+    promql_expr_test:
+      - expr: 'insighthub:llm_latency_p95_seconds:current'
+        eval_time: 82m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 82m
+        alertname: InsightHubLLMLatencyAnomaly
+        exp_alerts: []

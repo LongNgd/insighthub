@@ -1,0 +1,134 @@
+groups:
+  - name: insighthub-day4-anomaly
+    interval: 1m
+    rules:
+      # Source labels are reduced to namespace. The readiness rules require a
+      # full hour of history outside the most recent five-minute signal window.
+      - record: insighthub:llm_latency_p95_seconds:current
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (namespace, le) (rate(insighthub_llm_call_latency_seconds_bucket[5m]))
+          )
+          and on (namespace)
+          (sum by (namespace) (increase(insighthub_llm_call_latency_seconds_bucket{le="+Inf"}[5m])) > 0)
+      - record: insighthub:llm_latency_p95_seconds:baseline_ready
+        expr: |
+          (count_over_time(insighthub:llm_latency_p95_seconds:current[1h] offset 5m) >= bool 55)
+          and on (namespace)
+          (count_over_time(insighthub:llm_latency_p95_seconds:current[5m] offset 65m) >= 1)
+      - record: insighthub:llm_latency_p95_seconds:band_upper
+        expr: |
+          (
+            avg_over_time(insighthub:llm_latency_p95_seconds:current[1h] offset 5m)
+            + clamp_min(3 * stddev_over_time(insighthub:llm_latency_p95_seconds:current[1h] offset 5m), 0.25)
+          )
+          and on (namespace) (insighthub:llm_latency_p95_seconds:baseline_ready == 1)
+      - record: insighthub:llm_latency_p95_seconds:band_lower
+        expr: |
+          clamp_min(
+            avg_over_time(insighthub:llm_latency_p95_seconds:current[1h] offset 5m)
+            - clamp_min(3 * stddev_over_time(insighthub:llm_latency_p95_seconds:current[1h] offset 5m), 0.25),
+            0
+          )
+          and on (namespace) (insighthub:llm_latency_p95_seconds:baseline_ready == 1)
+      - alert: InsightHubLLMLatencyAnomaly
+        expr: |
+          (insighthub:llm_latency_p95_seconds:current > on (namespace) insighthub:llm_latency_p95_seconds:band_upper)
+          and on (namespace) (insighthub:llm_latency_p95_seconds:baseline_ready == 1)
+          and on (namespace) (insighthub:llm_latency_p95_seconds:current > 0.5)
+          and on (namespace)
+          (sum by (namespace) (increase(insighthub_llm_call_latency_seconds_bucket{le="+Inf"}[5m])) >= 5)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: InsightHub LLM p95 latency exceeds its one-hour band
+          description: LLM p95 latency stayed above the historical band with sufficient call volume.
+
+      # ZCARD includes queued, deferred, and in-progress ARQ jobs. A failed
+      # probe suppresses the current signal rather than retaining a stale gauge.
+      - record: insighthub:queue_entries:current
+        expr: |
+          max by (namespace) (insighthub_worker_queue_entries)
+          and on (namespace) (min by (namespace) (insighthub_worker_queue_probe_success) == 1)
+      - record: insighthub:queue_entries:baseline_ready
+        expr: |
+          (count_over_time(insighthub:queue_entries:current[1h] offset 5m) >= bool 55)
+          and on (namespace)
+          (count_over_time(insighthub:queue_entries:current[5m] offset 65m) >= 1)
+      - record: insighthub:queue_entries:band_upper
+        expr: |
+          (
+            avg_over_time(insighthub:queue_entries:current[1h] offset 5m)
+            + clamp_min(3 * stddev_over_time(insighthub:queue_entries:current[1h] offset 5m), 2)
+          )
+          and on (namespace) (insighthub:queue_entries:baseline_ready == 1)
+      - record: insighthub:queue_entries:band_lower
+        expr: |
+          clamp_min(
+            avg_over_time(insighthub:queue_entries:current[1h] offset 5m)
+            - clamp_min(3 * stddev_over_time(insighthub:queue_entries:current[1h] offset 5m), 2),
+            0
+          )
+          and on (namespace) (insighthub:queue_entries:baseline_ready == 1)
+      - alert: InsightHubQueueDepthAnomaly
+        expr: |
+          (insighthub:queue_entries:current > on (namespace) insighthub:queue_entries:band_upper)
+          and on (namespace) (insighthub:queue_entries:baseline_ready == 1)
+          and on (namespace) (insighthub:queue_entries:current >= 3)
+          and on (namespace) (min by (namespace) (insighthub_worker_queue_probe_success) == 1)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: InsightHub ARQ queue entries exceed their one-hour band
+          description: ARQ sorted-set entries include queued, deferred, and in-progress jobs; the probe is healthy.
+
+      # A zero 5xx numerator is derived only when the real total-request
+      # counter exists. Without traffic the current ratio is absent.
+      - record: insighthub:http_5xx_percent:current
+        expr: |
+          (
+            100 * (
+              sum by (namespace) (rate(insighthub_http_requests_total{status=~"5..",endpoint!="/metrics"}[5m]))
+              or on (namespace)
+              (0 * sum by (namespace) (rate(insighthub_http_requests_total{endpoint!="/metrics"}[5m])))
+            )
+            / sum by (namespace) (rate(insighthub_http_requests_total{endpoint!="/metrics"}[5m]))
+          )
+          and on (namespace)
+          (sum by (namespace) (increase(insighthub_http_requests_total{endpoint!="/metrics"}[5m])) > 0)
+      - record: insighthub:http_5xx_percent:baseline_ready
+        expr: |
+          (count_over_time(insighthub:http_5xx_percent:current[1h] offset 5m) >= bool 55)
+          and on (namespace)
+          (count_over_time(insighthub:http_5xx_percent:current[5m] offset 65m) >= 1)
+      - record: insighthub:http_5xx_percent:band_upper
+        expr: |
+          (
+            avg_over_time(insighthub:http_5xx_percent:current[1h] offset 5m)
+            + clamp_min(3 * stddev_over_time(insighthub:http_5xx_percent:current[1h] offset 5m), 1)
+          )
+          and on (namespace) (insighthub:http_5xx_percent:baseline_ready == 1)
+      - record: insighthub:http_5xx_percent:band_lower
+        expr: |
+          clamp_min(
+            avg_over_time(insighthub:http_5xx_percent:current[1h] offset 5m)
+            - clamp_min(3 * stddev_over_time(insighthub:http_5xx_percent:current[1h] offset 5m), 1),
+            0
+          )
+          and on (namespace) (insighthub:http_5xx_percent:baseline_ready == 1)
+      - alert: InsightHubHTTP5xxAnomaly
+        expr: |
+          (insighthub:http_5xx_percent:current > on (namespace) insighthub:http_5xx_percent:band_upper)
+          and on (namespace) (insighthub:http_5xx_percent:baseline_ready == 1)
+          and on (namespace) (insighthub:http_5xx_percent:current > 2)
+          and on (namespace)
+          (sum by (namespace) (increase(insighthub_http_requests_total{endpoint!="/metrics"}[5m])) >= 20)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: InsightHub HTTP 5xx rate exceeds its one-hour band
+          description: The 5xx percentage stayed above the historical band with sufficient request volume.
