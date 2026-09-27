@@ -48,6 +48,8 @@ web:
       memory: 512Mi
 
 monitoring:
+  dashboard:
+    enabled: false
   serviceMonitor:
     enabled: false
     additionalLabels: {}

@@ -56,6 +56,26 @@ Exporter image được pin theo tag và digest trong `values.yaml`. Exporter ch
 
 Trước khi áp dụng chart, chạy `helm lint helm/insighthub -f helm/insighthub/values-local.yaml` và `helm template insighthub helm/insighthub -n insighthub-prod -f helm/insighthub/values-local.yaml` để review selector, port, Secret reference và image. Khi nâng cấp release Day 3 đã có, dùng `helm upgrade --reset-then-reuse-values` kèm `-f helm/insighthub/values-local.yaml` và các image tag app đã nạp vào kind: cờ này giữ values release cũ và thêm default mới của chart (gồm image exporter). Sau khi có approval triển khai riêng, kiểm tra `kubectl get servicemonitor -n insighthub-prod` và Prometheus API/PromQL; lưu bằng chứng đã lược secret. `values-eks.yaml` chưa bật monitoring Day 4: exporter cho RDS/ElastiCache cần địa chỉ TLS và credential giám sát riêng trước lượt AWS.
 
+### Day 4: dashboard RED/USE
+
+`values-local.yaml` bật ConfigMap `insighthub-day4-dashboard` có nhãn `grafana_dashboard: "1"`. Grafana sidecar của kube-prometheus-stack local đọc ConfigMap ở mọi namespace và provision dashboard UID `insighthub-day4`, datasource UID `prometheus`. Dashboard có 12 panel: API request rate, 5xx %, mean HTTP duration, ARQ queue entries, LLM tokens, HTTP p95, estimated LLM cost, CPU %, memory %, CPU throttling %, container restarts và deployment generation. Bốn panel resource lấy từ cAdvisor/kube-state-metrics; các panel ứng dụng lấy từ ServiceMonitor đã có. Truy vấn 5xx trả 0 chỉ khi đã có mẫu tổng request.
+
+API đo thời gian HTTP bằng histogram theo method, route template và status. Worker đọc `ZCARD` của ARQ queue 5 giây/lần và xuất `insighthub_worker_queue_entries`; đây là số entry trong sorted set, gồm queued, deferred và in-progress, không phải số job chỉ đang chờ. Cần kiểm tra `insighthub_worker_queue_probe_success=1` cùng panel queue. Metric chỉ chứa nhãn có cardinality giới hạn; không chứa câu hỏi, context hoặc nội dung tài liệu.
+
+Token do provider báo dùng `insighthub_llm_tokens_total`; khi thiếu usage, `insighthub_llm_estimated_tokens_total` là ước lượng từ số từ của input/output và được vẽ thành series riêng. `insighthub_llm_estimated_cost_usd_total` là chi phí **ước tính**, không phải hóa đơn. Fixture tạo sample chi phí provider bằng 0 sau chat thật. Với provider thật, phải cấu hình cả `LLM_INPUT_USD_PER_MILLION_TOKENS` và `LLM_OUTPUT_USD_PER_MILLION_TOKENS` theo model/giá đang áp dụng; nếu chưa có giá, cost panel để trống. Khi usage không đủ hai chiều, cost được đánh dấu `usage_source="estimated"`.
+
+Trước khi apply, tạo lại JSON và review diff cùng rendered ConfigMap:
+
+```sh
+python scripts/build-day4-dashboard.py
+helm lint helm/insighthub -f helm/insighthub/values-local.yaml
+helm template insighthub helm/insighthub -n insighthub-prod -f helm/insighthub/values-local.yaml > /tmp/insighthub-day4-rendered.yaml
+```
+
+Sau approval riêng cho kind, nâng cấp chart cùng tag image API/worker vừa build và nạp vào kind, giữ Secret/PVC hiện có. Kiểm tra dashboard tại `http://127.0.0.1:13001/d/insighthub-day4` sau `kubectl -n monitoring port-forward svc/kube-prom-stack-grafana 13001:80 --address 127.0.0.1`. Gửi upload/chat thật, đợi ít nhất hai scrape, rồi kiểm tra các truy vấn trong dashboard và chụp toàn bộ 12 panel. Panel cost 0 trong fixture là chi phí provider 0 sau chat thật.
+
+Deploy annotations lấy timestamp của Helm release thực tế từ `helm history insighthub -n insighthub-prod -o json`, rồi gọi Grafana Annotations API bằng `python scripts/annotate-day4-deploy.py --grafana-url http://127.0.0.1:13001 --revision <revision> --time <RFC3339 timestamp>`. Script đọc `GRAFANA_API_TOKEN` hoặc `GRAFANA_USER`/`GRAFANA_PASSWORD` từ environment, không nhận credential qua CLI và chỉ in ID/time của annotation. Không chạy script trước khi dashboard được provision và được duyệt ghi lên kind. Dashboard bật annotation layer `Deploys` để marker xuất hiện trên đồ thị; chọn time range bao gồm timestamp release khi chụp ảnh.
+
 ## Chuyển sang EKS
 
 `values-eks.yaml` tắt PostgreSQL và Redis trong chart, dùng RDS/ElastiCache qua `DATABASE_URL`/`REDIS_URL` ở Secret ngoài chart, và tham chiếu ServiceAccount `insighthub` do Terraform/IRSA tạo. Cần cấu hình image registry/digest, provider thật, TLS và cơ chế đồng bộ Secret từ Secrets Manager trước khi deploy. HTTPS ingress và smoke trên URL thật nằm ở bước AWS riêng. Không đưa credential vào values, log hoặc evidence.

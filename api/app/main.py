@@ -1,6 +1,7 @@
 """InsightHub synchronous starter API."""
 
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -12,7 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from app.core.config import get_settings
 from app.core.db import close_pool, get_conn, initialize_database
 from app.core.errors import ServiceError
-from app.core.metrics import documents_total, http_requests_total
+from app.core.metrics import documents_total, http_request_duration, http_requests_total
 from app.core.upload_limit import UploadLimitMiddleware
 from app.routers import chat, documents, health
 from app.services.queue import close_queue
@@ -54,6 +55,7 @@ async def service_error_handler(request: Request, exc: ServiceError):
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
     status = 500
+    start = time.perf_counter()
     try:
         response = await call_next(request)
         status = response.status_code
@@ -83,6 +85,9 @@ async def metrics_middleware(request: Request, call_next):
             else "OTHER"
         )
         http_requests_total.labels(method, endpoint, str(status)).inc()
+        http_request_duration.labels(method, endpoint, str(status)).observe(
+            time.perf_counter() - start
+        )
 
 
 @app.get("/metrics")

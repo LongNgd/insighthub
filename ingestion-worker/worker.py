@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from arq import Retry
+from arq.constants import default_queue_name
 from arq.connections import RedisSettings
 from arq.logs import default_log_config
 from prometheus_client import Counter, Gauge, start_http_server
@@ -26,8 +27,29 @@ worker_jobs_total = Counter(
     "Ingestion job attempts by bounded outcome",
     ["outcome"],
 )
+worker_queue_entries = Gauge(
+    "insighthub_worker_queue_entries",
+    "ARQ Redis sorted-set entries, including queued, deferred and in-progress jobs",
+)
+worker_queue_probe_success = Gauge(
+    "insighthub_worker_queue_probe_success",
+    "Whether the latest ARQ queue ZCARD probe succeeded",
+)
 for outcome in ("ready", "retry", "failed", "deleted"):
     worker_jobs_total.labels(outcome)
+
+
+async def _poll_queue_entries(redis: Any) -> None:
+    while True:
+        try:
+            worker_queue_entries.set(await redis.zcard(default_queue_name))
+            worker_queue_probe_success.set(1)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            worker_queue_probe_success.set(0)
+        await asyncio.sleep(5)
+
 
 def _log(event: str, document_id: int, status: str, attempt: int, error_code: str | None = None) -> None:
     record: dict[str, Any] = {
@@ -49,10 +71,18 @@ async def startup(ctx: dict[str, Any]) -> None:
         server, thread = start_http_server(port)
         ctx["metrics_server"] = (server, thread)
         worker_ready.set(1)
+        ctx["queue_metrics_task"] = asyncio.create_task(_poll_queue_entries(ctx["redis"]))
 
 
 async def shutdown(ctx: dict[str, Any]) -> None:
     worker_ready.set(0)
+    queue_metrics_task = ctx.pop("queue_metrics_task", None)
+    if queue_metrics_task is not None:
+        queue_metrics_task.cancel()
+        try:
+            await queue_metrics_task
+        except asyncio.CancelledError:
+            pass
     metrics_server = ctx.pop("metrics_server", None)
     if metrics_server is not None:
         server, thread = metrics_server
