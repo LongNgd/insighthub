@@ -1,0 +1,14 @@
+{{- if .Values.monitoring.rules.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "insighthub.fullname" . }}-day4-anomaly
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.rules.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- .Files.Get "files/day4-anomaly-rules.yaml" | nindent 2 }}
+{{- end }}

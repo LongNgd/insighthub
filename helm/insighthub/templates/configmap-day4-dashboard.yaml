@@ -1,0 +1,12 @@
+{{- if .Values.monitoring.dashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "insighthub.fullname" . }}-day4-dashboard
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  insighthub-day4.json: |
+{{ .Files.Get "files/day4-dashboard.json" | indent 4 }}
+{{- end }}

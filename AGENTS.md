@@ -1,6 +1,6 @@
 # InsightHub - Project context DO2603
 
-Project context cho Day 1–2. Host đã chọn là ChatGPT-Codex. Giữ sáu section dưới đây, tổng không quá 200 dòng; mọi thay đổi phải được đối chiếu bằng diff và tests.
+Project context cho Day 1–3. Host đã chọn là ChatGPT-Codex. Giữ sáu section dưới đây, tổng không quá 200 dòng; mọi thay đổi phải được đối chiếu bằng diff và tests.
 
 ## Architecture
 - Web Next.js, API FastAPI, Redis/ARQ, ingestion-worker và PostgreSQL/pgvector là năm service Day 1.
@@ -9,6 +9,8 @@ Project context cho Day 1–2. Host đã chọn là ChatGPT-Codex. Giữ sáu se
 - Ollama là profile model local tùy chọn, không thay Redis/worker và không tính vào năm service bắt buộc.
 - Day 2 có lab độc lập trong `observability/`: Prometheus `v3.14.0` scrape chính nó và Node Exporter `v1.12.1` làm sample target; hai service chỉ bind vào localhost.
 - Bốn MCP backend của Codex nằm trong `.codex/config.toml`: Filesystem, Docker, Kubernetes và Prometheus. Custom MCP của InsightHub vẫn nằm trong `tools/mcp/` và không thay thế bốn backend trên.
+- Day 3 local dùng Helm chart `helm/insighthub/` triển khai đủ năm thành phần vào kind namespace `insighthub-prod`; `values-eks.yaml` dùng RDS/ElastiCache và ServiceAccount do Terraform quản lý thay DB/Redis local.
+- Terraform ở `infra/` khai báo EKS, RDS, ElastiCache, IRSA, Secrets Manager và rotation; VPC/private subnet là đầu vào lab. `.github/workflows/iac.yml` tách PR/push local gates với `workflow_dispatch` AWS plan → policy → cost → apply có Environment approval.
 
 ## Conventions
 - Python type hints, lỗi có kiểm soát; đọc pattern hiện có trước khi sửa.
@@ -20,6 +22,8 @@ Project context cho Day 1–2. Host đã chọn là ChatGPT-Codex. Giữ sáu se
 - API dùng Redis pool lazy qua `enqueue_document`; queue không sẵn sàng trả `QueueUnavailable` 503 đã sanitize và xóa document `pending` vừa tạo. Worker chỉ retry `ProviderError`, tối đa 3 lần với exponential backoff; job trễ của document đã xóa kết thúc có kiểm soát.
 - Day 2 dùng version pin, không dùng `@latest`. Filesystem MCP chỉ nhận project root. Kubernetes MCP dùng kubeconfig local, `--read-only`, single cluster và core toolset. Docker MCP có Docker socket, nên giữ tool approval ở chế độ `prompt`.
 - Credentials, kubeconfig, Docker socket và token ở local; không commit chúng hoặc đưa vào evidence.
+- Day 3 pin Terraform/provider/action/image/tool version; giữ S3 state lock, plan và token Redis ngoài repo. Plan nhị phân và state chứa secret dù biến Terraform được đánh dấu `sensitive`; evidence chỉ lưu kết quả đã lược secret, hash và tham chiếu run.
+- CI self-hosted `deploy-kind` chỉ chạy sau push vào `prod/main`, kiểm tra context `kind-insighthub`; PR không chạy trên runner có Docker socket/kubeconfig. AWS apply chỉ từ `workflow_dispatch` trên `prod/main`; phải bật required reviewer cho Environment và review plan/cost trước khi duyệt.
 
 ## Commands
 - Chạy mọi lệnh terminal qua WSL, tại thư mục gốc dự án. Trước khi chạy lệnh trong mỗi phiên shell, kích hoạt venv hiện có bằng `source .venv/bin/activate`. Không tự tạo lại venv hoặc dùng Python ngoài venv.
@@ -32,7 +36,10 @@ Project context cho Day 1–2. Host đã chọn là ChatGPT-Codex. Giữ sáu se
 - Tái hiện failure qua tests với provider exception/vector sai count-dimension/non-finite, retry cùng ID+payload, payload xung đột, file rỗng và file trên 10 MB; không dùng real provider để tạo failure test xác định.
 - Day 2 lab: `docker compose -f observability/compose.yaml up -d`; kiểm tra `http://127.0.0.1:9090/api/v1/targets` và PromQL `up` để xác nhận `prometheus` và `sample-target` đều UP.
 - Day 2 custom MCP: `npm ci --prefix tools/mcp --ignore-scripts`; `make test-mcp`; `bash scripts/verify-day-2.sh --mcp-tools insighthub_health,insighthub_list_documents,prometheus_summary --prometheus-url http://127.0.0.1:9090 --json`.
-- Khi source đổi, tạo lại `evidence/day2.json` với fingerprint và timestamp mới, rồi chạy lại verifier; evidence cũ không còn hợp lệ.
+- Khi source đổi (kể cả `AGENTS.md`), fingerprint đổi: thu thập lại evidence Day 1–3 tương ứng rồi chạy lại verifier; không sửa hash/timestamp cũ để che stale evidence.
+- Day 3 static gate: `terraform -chdir=infra fmt -check -recursive`; `terraform -chdir=infra init -backend=false -input=false`; `terraform -chdir=infra validate`; `(cd infra && tflint --recursive)`; `checkov -d infra/ --framework terraform --compact --quiet`; `bash scripts/test-terraform-policy.sh`; `python -m unittest tests/test_redis_rotation.py`.
+- Day 3 local deploy: đối chiếu `infra/db/init.sql` với `helm/insighthub/files/init.sql`; `helm lint helm/insighthub -f helm/insighthub/values-local.yaml`; `helm template` và kiểm tra rollout năm workload theo `helm/insighthub/README.md`; chạy `python scripts/smoke-k8s-local.py` qua port-forward localhost.
+- Day 3 real plan khi đã có AWS inputs: xác minh account/region, backend và private subnet; chạy `bash scripts/test-terraform-policy-plan.sh /absolute/path/to/day3.tfplan`, review plan/cost trước apply. `bash scripts/verify-day-3.sh --evidence-dir evidence` kiểm tra contract theo `scripts/VERIFICATION_CONTRACT.md`; xem `--help` cho tham số runtime cần thiết.
 
 ## Constraints
 - Embeddings finite, đúng count/dimension/identity; đổi identity cần migration/reindex.
@@ -47,6 +54,8 @@ Project context cho Day 1–2. Host đã chọn là ChatGPT-Codex. Giữ sáu se
 - Mọi mutation cloud/cluster, gửi Slack hoặc xóa dữ liệu cần quyền và approval riêng; thay đổi prompt không được coi là enforcement.
 - K8s MCP bắt buộc có ServiceAccount và ClusterRole `mcp-readonly`; RBAC là enforcement, không thay bằng prompt hoặc `--read-only`. Chỉ cho phép `get`, `list`, `watch`; không có mutate/delete.
 - Day 2 cần status host, trace tool-call và Inspector cho từng backend; CLI hoặc container STDIO đơn lẻ không đủ. Giữ `debug-session-day2.md` là RCA của một case thực tế.
+- Day 3 không xem fixture Conftest, Checkov, CI source binding hay kind fixture smoke là bằng chứng AWS plan/apply, real provider, HTTPS hoặc teardown. Không đưa raw tfplan/JSON, state, token, kubeconfig hay credential vào artifact/evidence; không thêm policy skip hoặc nới assertion để làm gate xanh.
+- Cloud mutation và destroy cần review manifest/account/region, chi phí, plan cụ thể và approval riêng; không chạy apply/destroy hoặc xóa PVC để sửa test. Teardown phải đối chiếu inventory tài nguyên còn tính phí, kể cả KMS pending deletion.
 
 ## Domain
 - Tài liệu qua chunk/embed/store, chat truy hồi context và trả sources.
@@ -58,14 +67,16 @@ Project context cho Day 1–2. Host đã chọn là ChatGPT-Codex. Giữ sáu se
 - API phải tiếp tục health/chat/list khi worker dừng; backlog giữ ở queue để worker xử lý khi phục hồi. Xóa document dùng FK cascade và job trễ phải kết thúc có kiểm soát, không tái tạo dữ liệu đã xóa.
 - Upload response giữ các trường `id`, `filename`, `status`, `chunk_count`, `mode`, `embedding_identity_id`; ngay sau enqueue có `status: pending` và `chunk_count: 0`. `GET /documents` vẫn là nguồn trạng thái duy nhất.
 - Day 2 evidence hiện có gồm bốn host trace trong `evidence/day2-*-trace.png`, `debug-session-day2.md` và `evidence/day2.json`. Verifier Day 2 đã PASS với backend `live-loopback`; kết quả chỉ xác minh custom MCP contract, không thay review đầy đủ bốn backend/RBAC/Inspector/quiz.
+- Day 3 evidence ghi nhận static policy gate, local kind smoke và CI artifact/source binding tại `evidence/day3-*.md`, `evidence/day3-ci/`, `evidence/day3-local-kind/`, `evidence/day3.json`; AWS-backed plan, Infracost, apply, HTTPS và teardown vẫn pending. Evidence gắn với fingerprint nguồn tại lúc tạo; sửa `AGENTS.md` làm fingerprint đổi nên phải thu thập lại evidence trước khi tuyên bố verifier Day 3 PASS cho source mới.
 
 ## References
 - README.md, GETTING_STARTED.md, Running-Project-Specification-Student.md.
 - docs/Guide_Coding_Host_DO2603.md, docs/Guide_Local_AWS_Cost_DO2603.md.
 - Day 1: `docs/lab-guides/Day1-AI-Coding-Agents.md`, `ingestion-worker/README.md`, `scripts/VERIFICATION_CONTRACT.md`, `scripts/verify.py` và `scripts/verify-day-1.sh`.
 - Day 2: `docs/lab-guides/Day2-MCP-Protocol.md`, `.codex/config.toml`, `observability/{compose.yaml,prometheus.yml,README.md}`, `tools/mcp/{manifest.json,smoke.mjs,test/}`, `debug-session-day2.md`, `evidence/day2.json` và `ai-prompts/day2.md`.
+- Day 3: `infra/{SPEC.md,README.md,*.tf}`, `helm/insighthub/{README.md,values-local.yaml,values-eks.yaml}`, `.github/workflows/iac.yml`, `policy/terraform/`, `kubernetes/{README.md,kind/,mcp/}`, `scripts/{test-terraform-policy.sh,test-terraform-policy-plan.sh,smoke-k8s-local.py,verify-day-3.sh}`, `tests/milestones/day3/test_policy.py`, `evidence/day3*.md`, `evidence/day3.json` và `ai-prompts/day3.md`.
 - Runtime: `api/app/routers/{documents,chat}.py`; `api/app/services/{queue,ingestion,chunking,embeddings,retrieval,llm}.py`; `api/app/core/{config,errors,db,index,metrics}.py`; `ingestion-worker/{worker.py,Dockerfile,requirements.txt}`; `infra/db/init.sql`; `docker-compose.yml`; `Makefile`.
 - Tests: `api/tests/test_integration.py`, `api/tests/test_unit_*.py`, `tests/test_verify.py`; khi đổi 201 thành 202 phải thay test chờ worker nhưng giữ assertion validation, dữ liệu, idempotency, provider và chat.
 - Thứ tự nguồn chuẩn: specification/acceptance > README/GETTING_STARTED > code và tests hiện có; nếu mâu thuẫn, dừng và ghi rõ giả định thay vì tự chọn contract.
-- Với đề xuất AI, review diff nhỏ theo file scope, chạy test liên quan rồi ghi vào `ai-prompts/day1.md` hoặc `ai-prompts/day2.md`/PR: quyết định chấp nhận hoặc bác bỏ, lý do, rủi ro và bằng chứng command/output. Không chấp nhận chỉ vì code chạy hoặc verifier PASS một phần.
+- Với đề xuất AI, review diff nhỏ theo file scope, chạy test liên quan rồi ghi vào `ai-prompts/day1.md`, `ai-prompts/day2.md`, `ai-prompts/day3.md` hoặc PR: quyết định chấp nhận hoặc bác bỏ, lý do, rủi ro và bằng chứng command/output. Không chấp nhận chỉ vì code chạy hoặc verifier PASS một phần.
 

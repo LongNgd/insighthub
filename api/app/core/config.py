@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     llm_model: str = ""
     embedding_model: str = ""
     llm_max_tokens: int = Field(default=1024, ge=1, le=32768)
+    llm_input_usd_per_million_tokens: float = Field(
+        default=0, ge=0, allow_inf_nan=False
+    )
+    llm_output_usd_per_million_tokens: float = Field(
+        default=0, ge=0, allow_inf_nan=False
+    )
     embedding_dim: int = Field(default=1024, ge=1, le=2000)
     embedding_revision: str = Field(default="1", min_length=1, max_length=128)
     provider_timeout_seconds: float = Field(
@@ -58,6 +64,9 @@ class Settings(BaseSettings):
     )
     redis_url: str = Field(default="redis://redis:6379/0", repr=False)
     worker_max_retries: int = Field(default=3, ge=1, le=3)
+    worker_metrics_port: int = Field(default=0, ge=0, le=65535)
+    day4_chaos_enabled: bool = False
+    day4_chaos_control_path: str = ""
     embedding_batch_size: int = Field(default=32, ge=1, le=100)
     chunk_size: int = Field(default=800, ge=2, le=8000)
     chunk_overlap: int = Field(default=100, ge=0)
@@ -67,6 +76,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_configuration(self):
+        if self.day4_chaos_enabled and (
+            self.environment != "day4-kind"
+            or self.rag_mode != "fixture"
+            or not self.day4_chaos_control_path
+        ):
+            raise ValueError("Day 4 fault control requires kind fixture mode and a control path")
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("CHUNK_OVERLAP must be smaller than CHUNK_SIZE")
         if self.rag_mode == "fixture":

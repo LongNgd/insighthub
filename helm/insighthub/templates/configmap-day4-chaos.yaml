@@ -1,0 +1,14 @@
+{{- if .Values.day4Chaos.enabled }}
+{{- if ne .Values.app.config.RAG_MODE "fixture" }}
+{{- fail "day4Chaos requires RAG_MODE=fixture" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "insighthub.fullname" . }}-day4-chaos
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+data:
+  fault.json: '{"mode":"off","delay_seconds":0,"expires_at":"1970-01-01T00:00:00Z"}'
+{{- end }}

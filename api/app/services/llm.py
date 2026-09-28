@@ -1,11 +1,13 @@
 """Provider generation with explicit fixture labeling and usage provenance."""
 
 import json
+import time
 from urllib.parse import quote
 
 from app.core.config import get_settings
 from app.core.errors import ProviderError
 from app.core.providers import post_json, token_count
+from app.services.day4_fault import active_fault
 
 SYSTEM_PROMPT = (
     "Bạn là trợ lý InsightHub. Chỉ trả lời dựa trên tài liệu được cung cấp. "
@@ -110,6 +112,12 @@ def generate(question: str, contexts: list[dict]) -> dict:
     settings = get_settings()
     try:
         if settings.rag_mode == "fixture":
+            fault = active_fault()
+            if fault is not None:
+                if fault.mode == "errors":
+                    raise ProviderError()
+                if fault.mode == "latency":
+                    time.sleep(fault.delay_seconds)
             snippet = (
                 contexts[0]["chunk_text"][:300] if contexts else "(không có dữ liệu)"
             )

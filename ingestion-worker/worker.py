@@ -6,18 +6,53 @@ from datetime import UTC, datetime
 from typing import Any
 
 from arq import Retry
+from arq.constants import default_queue_name
 from arq.connections import RedisSettings
 from arq.logs import default_log_config
+from prometheus_client import Counter, Gauge, start_http_server
 
 from app.core.config import get_settings
 from app.core.db import close_pool, initialize_database
 from app.core.errors import DocumentNotFound, ProviderError, ServiceError
 from app.services.ingestion import process_document
+from app.services.day4_fault import active_fault
 
 # The ARQ CLI applies dictConfig after importing this module. Its INFO job
 # representation includes uploaded bytes, so suppress ARQ INFO at the source.
 SAFE_LOG_CONFIG = default_log_config(False)
 SAFE_LOG_CONFIG["loggers"]["arq"]["level"] = "WARNING"
+
+worker_ready = Gauge("insighthub_worker_ready", "ARQ worker startup completed")
+worker_jobs_total = Counter(
+    "insighthub_worker_jobs_total",
+    "Ingestion job attempts by bounded outcome",
+    ["outcome"],
+)
+worker_queue_entries = Gauge(
+    "insighthub_worker_queue_entries",
+    "ARQ Redis sorted-set entries, including queued, deferred and in-progress jobs",
+)
+worker_queue_probe_success = Gauge(
+    "insighthub_worker_queue_probe_success",
+    "Whether the latest ARQ queue ZCARD probe succeeded",
+)
+for outcome in ("ready", "retry", "failed", "deleted"):
+    worker_jobs_total.labels(outcome)
+
+_backlog_gate = asyncio.Lock()
+
+
+async def _poll_queue_entries(redis: Any) -> None:
+    while True:
+        try:
+            worker_queue_entries.set(await redis.zcard(default_queue_name))
+            worker_queue_probe_success.set(1)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            worker_queue_probe_success.set(0)
+        await asyncio.sleep(5)
+
 
 def _log(event: str, document_id: int, status: str, attempt: int, error_code: str | None = None) -> None:
     record: dict[str, Any] = {
@@ -32,11 +67,31 @@ def _log(event: str, document_id: int, status: str, attempt: int, error_code: st
     print(json.dumps(record, ensure_ascii=False), flush=True)
 
 
-async def startup(_: dict[str, Any]) -> None:
+async def startup(ctx: dict[str, Any]) -> None:
     await asyncio.to_thread(initialize_database)
+    port = get_settings().worker_metrics_port
+    if port:
+        server, thread = start_http_server(port)
+        ctx["metrics_server"] = (server, thread)
+        worker_ready.set(1)
+        ctx["queue_metrics_task"] = asyncio.create_task(_poll_queue_entries(ctx["redis"]))
 
 
-async def shutdown(_: dict[str, Any]) -> None:
+async def shutdown(ctx: dict[str, Any]) -> None:
+    worker_ready.set(0)
+    queue_metrics_task = ctx.pop("queue_metrics_task", None)
+    if queue_metrics_task is not None:
+        queue_metrics_task.cancel()
+        try:
+            await queue_metrics_task
+        except asyncio.CancelledError:
+            pass
+    metrics_server = ctx.pop("metrics_server", None)
+    if metrics_server is not None:
+        server, thread = metrics_server
+        server.shutdown()
+        server.server_close()
+        thread.join()
     await asyncio.to_thread(close_pool)
 
 
@@ -47,25 +102,38 @@ async def process_document_job(
     attempt = int(ctx.get("job_try", 1))
     final_attempt = attempt >= get_settings().worker_max_retries
     try:
-        chunk_count = await asyncio.to_thread(
-            process_document,
-            document_id,
-            filename,
-            content,
-            retryable_failure=not final_attempt,
-        )
+        fault = active_fault()
+        if fault is not None and fault.mode == "backlog":
+            async with _backlog_gate:
+                fault = active_fault()
+                if fault is not None and fault.mode == "backlog":
+                    await asyncio.sleep(fault.delay_seconds)
+                chunk_count = await asyncio.to_thread(
+                    process_document, document_id, filename, content,
+                    retryable_failure=not final_attempt,
+                )
+        else:
+            chunk_count = await asyncio.to_thread(
+                process_document, document_id, filename, content,
+                retryable_failure=not final_attempt,
+            )
     except DocumentNotFound:
+        worker_jobs_total.labels("deleted").inc()
         _log("ingestion_deleted", document_id, "deleted", attempt)
         return 0
     except ProviderError as exc:
         if not final_attempt:
+            worker_jobs_total.labels("retry").inc()
             _log("ingestion_retry_scheduled", document_id, "pending", attempt, exc.code)
             raise Retry(defer=2 ** (attempt - 1)) from None
+        worker_jobs_total.labels("failed").inc()
         _log("ingestion_failed", document_id, "failed", attempt, exc.code)
         raise
     except ServiceError as exc:
+        worker_jobs_total.labels("failed").inc()
         _log("ingestion_failed", document_id, "failed", attempt, exc.code)
         raise
+    worker_jobs_total.labels("ready").inc()
     _log("ingestion_completed", document_id, "ready", attempt)
     return chunk_count
 

@@ -6,3 +6,29 @@ redis:
   enabled: true
 serviceAccount:
   create: true
+day4Chaos:
+  enabled: true
+monitoring:
+  alertmanager:
+    enabled: true
+    webhookSecret:
+      name: insighthub-slack-webhook
+      key: api_url
+  dashboard:
+    enabled: true
+  rules:
+    enabled: true
+    additionalLabels:
+      release: kube-prom-stack
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: kube-prom-stack
+  worker:
+    enabled: true
+    port: 9101
+  exporters:
+    postgres:
+      enabled: true
+    redis:
+      enabled: true

@@ -1,0 +1,899 @@
+---
+# Source: insighthub/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: insighthub
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+automountServiceAccountToken: false
+---
+# Source: insighthub/templates/configmap-app.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: insighthub-app
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+data:
+  EMBEDDING_DIM: "1024"
+  EMBEDDING_PROVIDER: "fixture"
+  EMBEDDING_REVISION: "1"
+  LLM_PROVIDER: "fixture"
+  LOG_LEVEL: "INFO"
+  RAG_MODE: "fixture"
+---
+# Source: insighthub/templates/configmap-postgres-init.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: insighthub-postgres-init
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+data:
+  init.sql: |
+    -- Fresh-volume starter schema. Existing volumes require an explicit migration/rebuild.
+    -- Do not reinterpret old vectors: their provider identity cannot be recovered safely.
+    CREATE EXTENSION IF NOT EXISTS vector;
+    
+    DO $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = current_schema() AND table_name = 'documents'
+        ) AND NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = current_schema() AND table_name = 'documents'
+              AND column_name = 'content_sha256'
+        ) THEN
+            RAISE EXCEPTION 'Legacy InsightHub schema: migrate or rebuild explicitly before using this starter';
+        END IF;
+    END $$;
+    
+    -- One immutable vector space per starter index, claimed by the first successful ingest.
+    CREATE TABLE IF NOT EXISTS embedding_index (
+        singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
+        identity_id TEXT NOT NULL UNIQUE,
+        identity JSONB NOT NULL,
+        dimension INTEGER NOT NULL CHECK (dimension > 0),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    
+    CREATE TABLE IF NOT EXISTS documents (
+        id BIGSERIAL PRIMARY KEY,
+        filename TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'ready', 'failed')),
+        chunk_count INTEGER NOT NULL DEFAULT 0 CHECK (chunk_count >= 0),
+        content_sha256 TEXT,
+        pipeline_id TEXT,
+        embedding_identity_id TEXT REFERENCES embedding_index(identity_id),
+        error_code TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (id, embedding_identity_id),
+        CHECK (status <> 'ready' OR
+            (chunk_count > 0 AND content_sha256 IS NOT NULL AND pipeline_id IS NOT NULL
+             AND embedding_identity_id IS NOT NULL AND error_code IS NULL)),
+        CHECK (status = 'ready' OR chunk_count = 0)
+    );
+    
+    -- EMBEDDING_DIM must match VECTOR(1024). Dimension changes require rebuilding this schema.
+    CREATE TABLE IF NOT EXISTS chunks (
+        id BIGSERIAL PRIMARY KEY,
+        document_id BIGINT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+        chunk_index INTEGER NOT NULL CHECK (chunk_index >= 0),
+        chunk_text TEXT NOT NULL CHECK (length(chunk_text) > 0),
+        embedding VECTOR(1024) NOT NULL,
+        embedding_identity_id TEXT NOT NULL REFERENCES embedding_index(identity_id),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (document_id, chunk_index),
+        FOREIGN KEY (document_id, embedding_identity_id)
+            REFERENCES documents(id, embedding_identity_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS chunks_embedding_hnsw_idx
+        ON chunks USING hnsw (embedding vector_cosine_ops)
+        WITH (m = 16, ef_construction = 64);
+    CREATE INDEX IF NOT EXISTS documents_status_idx ON documents(status);
+---
+# Source: insighthub/templates/postgres.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: insighthub-postgres-data
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
+# Source: insighthub/templates/redis.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: insighthub-redis-data
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Source: insighthub/templates/api.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: insighthub-api
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+    app.kubernetes.io/component: api
+spec:
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+  selector:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/component: api
+---
+# Source: insighthub/templates/postgres-exporter.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: insighthub-postgres-exporter
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+    app.kubernetes.io/component: postgres-exporter
+spec:
+  ports:
+    - name: metrics
+      port: 9187
+      targetPort: metrics
+  selector:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/component: postgres-exporter
+---
+# Source: insighthub/templates/postgres.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: insighthub-postgres
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+spec:
+  clusterIP: None
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+  selector:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/component: postgres
+---
+# Source: insighthub/templates/redis-exporter.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: insighthub-redis-exporter
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+    app.kubernetes.io/component: redis-exporter
+spec:
+  ports:
+    - name: metrics
+      port: 9121
+      targetPort: metrics
+  selector:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/component: redis-exporter
+---
+# Source: insighthub/templates/redis.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: insighthub-redis
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+spec:
+  clusterIP: None
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+  selector:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/component: redis
+---
+# Source: insighthub/templates/web.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: insighthub-web
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+    app.kubernetes.io/component: web
+spec:
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+  selector:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/component: web
+---
+# Source: insighthub/templates/worker.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: insighthub-worker
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+    app.kubernetes.io/component: worker
+spec:
+  ports:
+    - name: metrics
+      port: 9101
+      targetPort: metrics
+  selector:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/component: worker
+---
+# Source: insighthub/templates/api.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insighthub-api
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: insighthub
+      app.kubernetes.io/instance: insighthub
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: insighthub
+        app.kubernetes.io/instance: insighthub
+        app.kubernetes.io/component: api
+      annotations:
+        checksum/config: c28e7bf1d63ab00f1bba0f5237150ad6e13ed254de819e6bcb74693715e01431
+    spec:
+      serviceAccountName: insighthub
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+      containers:
+        - name: api
+          image: "insighthub-api:60babf389bd57410ae1878b4aafc86fc15fbaa89"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: insighthub-app
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: insighthub-local-credentials
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: insighthub-local-credentials
+                  key: redis-url
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+---
+# Source: insighthub/templates/postgres-exporter.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insighthub-postgres-exporter
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: insighthub
+      app.kubernetes.io/instance: insighthub
+      app.kubernetes.io/component: postgres-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: insighthub
+        app.kubernetes.io/instance: insighthub
+        app.kubernetes.io/component: postgres-exporter
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+      containers:
+        - name: postgres-exporter
+          image: "quay.io/prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: metrics
+              containerPort: 9187
+          env:
+            - name: DATA_SOURCE_URI
+              value: "insighthub-postgres:5432/insighthub?sslmode=disable"
+            - name: DATA_SOURCE_USER
+              value: "insighthub"
+            - name: DATA_SOURCE_PASS_FILE
+              value: /etc/insighthub-monitoring/password
+          volumeMounts:
+            - name: password
+              mountPath: /etc/insighthub-monitoring
+              readOnly: true
+          readinessProbe:
+            tcpSocket:
+              port: metrics
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 20m
+              memory: 32Mi
+      volumes:
+        - name: password
+          secret:
+            secretName: insighthub-local-credentials
+            items:
+              - key: postgres-password
+                path: password
+---
+# Source: insighthub/templates/redis-exporter.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insighthub-redis-exporter
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: insighthub
+      app.kubernetes.io/instance: insighthub
+      app.kubernetes.io/component: redis-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: insighthub
+        app.kubernetes.io/instance: insighthub
+        app.kubernetes.io/component: redis-exporter
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+      containers:
+        - name: redis-exporter
+          image: "oliver006/redis_exporter:v1.92.0@sha256:ca3abd5f19da6c87e96038ba08aaa3dfaab34dc649834584c4d6880b05952fef"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: metrics
+              containerPort: 9121
+          env:
+            - name: REDIS_ADDR
+              value: "redis://insighthub-redis:6379"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: insighthub-local-credentials
+                  key: redis-password
+          readinessProbe:
+            tcpSocket:
+              port: metrics
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 20m
+              memory: 32Mi
+---
+# Source: insighthub/templates/web.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insighthub-web
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: insighthub
+      app.kubernetes.io/instance: insighthub
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: insighthub
+        app.kubernetes.io/instance: insighthub
+        app.kubernetes.io/component: web
+    spec:
+      serviceAccountName: insighthub
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+      containers:
+        - name: web
+          image: "insighthub-web:day4-metrics-r1"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: API_INTERNAL_URL
+              value: http://insighthub-api:8000
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/documents
+              port: http
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+---
+# Source: insighthub/templates/worker.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insighthub-worker
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: insighthub
+      app.kubernetes.io/instance: insighthub
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: insighthub
+        app.kubernetes.io/instance: insighthub
+        app.kubernetes.io/component: worker
+      annotations:
+        checksum/config: c28e7bf1d63ab00f1bba0f5237150ad6e13ed254de819e6bcb74693715e01431
+    spec:
+      serviceAccountName: insighthub
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+      containers:
+        - name: worker
+          image: "insighthub-worker:day4-metrics-r1"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: metrics
+              containerPort: 9101
+          envFrom:
+            - configMapRef:
+                name: insighthub-app
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: insighthub-local-credentials
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: insighthub-local-credentials
+                  key: redis-url
+            - name: WORKER_METRICS_PORT
+              value: "9101"
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import os, psycopg, redis, sys; sys.excepthook = lambda *args: None; conn = psycopg.connect(os.environ['DATABASE_URL'], connect_timeout=2); conn.close(); assert redis.Redis.from_url(os.environ['REDIS_URL'], socket_timeout=2).ping()"
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+---
+# Source: insighthub/templates/postgres.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: insighthub-postgres
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+spec:
+  replicas: 1
+  serviceName: insighthub-postgres
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: insighthub
+      app.kubernetes.io/instance: insighthub
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: insighthub
+        app.kubernetes.io/instance: insighthub
+        app.kubernetes.io/component: postgres
+      annotations:
+        checksum/init-sql: 7f831deb37718f8124699a057e69ad849d15a5e42830905789c1992a5c1ab719
+    spec:
+      containers:
+        - name: postgres
+          image: "pgvector/pgvector:0.8.2-pg16@sha256:00ba258a66dac104fd5171074a0084462a64a1369d8513f3d0a634e2f24d15bc"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: "insighthub"
+            - name: POSTGRES_DB
+              value: "insighthub"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: insighthub-local-credentials
+                  key: postgres-password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d/init.sql
+              subPath: init.sql
+              readOnly: true
+          startupProbe:
+            exec:
+              command: [pg_isready, -U, "insighthub", -d, "insighthub"]
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            exec:
+              command: [pg_isready, -U, "insighthub", -d, "insighthub"]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: [pg_isready, -U, "insighthub", -d, "insighthub"]
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: "1"
+              memory: 768Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: insighthub-postgres-data
+        - name: init-sql
+          configMap:
+            name: insighthub-postgres-init
+---
+# Source: insighthub/templates/redis.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: insighthub-redis
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+spec:
+  replicas: 1
+  serviceName: insighthub-redis
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: insighthub
+      app.kubernetes.io/instance: insighthub
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: insighthub
+        app.kubernetes.io/instance: insighthub
+        app.kubernetes.io/component: redis
+    spec:
+      containers:
+        - name: redis
+          image: "redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952"
+          imagePullPolicy: IfNotPresent
+          command: [redis-server, /etc/redis/redis.conf]
+          ports:
+            - name: redis
+              containerPort: 6379
+          env:
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: insighthub-local-credentials
+                  key: redis-password
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /etc/redis
+              readOnly: true
+          startupProbe:
+            exec:
+              command: [redis-cli, ping]
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            exec:
+              command: [redis-cli, ping]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: [redis-cli, ping]
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: insighthub-redis-data
+        - name: config
+          secret:
+            secretName: insighthub-local-credentials
+            items:
+              - key: redis.conf
+                path: redis.conf
+---
+# Source: insighthub/templates/servicemonitor-api.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: insighthub-api
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+    release: kube-prom-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: insighthub
+      app.kubernetes.io/instance: insighthub
+      app.kubernetes.io/component: api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: "15s"
+      scrapeTimeout: "5s"
+---
+# Source: insighthub/templates/servicemonitor-postgres.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: insighthub-postgres-exporter
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+    release: kube-prom-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: insighthub
+      app.kubernetes.io/instance: insighthub
+      app.kubernetes.io/component: postgres-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: "15s"
+      scrapeTimeout: "5s"
+---
+# Source: insighthub/templates/servicemonitor-redis.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: insighthub-redis-exporter
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+    release: kube-prom-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: insighthub
+      app.kubernetes.io/instance: insighthub
+      app.kubernetes.io/component: redis-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: "15s"
+      scrapeTimeout: "5s"
+---
+# Source: insighthub/templates/servicemonitor-web.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: insighthub-web
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+    release: kube-prom-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: insighthub
+      app.kubernetes.io/instance: insighthub
+      app.kubernetes.io/component: web
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: "15s"
+      scrapeTimeout: "5s"
+---
+# Source: insighthub/templates/servicemonitor-worker.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: insighthub-worker
+  labels:
+    app.kubernetes.io/name: insighthub
+    app.kubernetes.io/instance: insighthub
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: insighthub-0.1.0
+    release: kube-prom-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: insighthub
+      app.kubernetes.io/instance: insighthub
+      app.kubernetes.io/component: worker
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: "15s"
+      scrapeTimeout: "5s"
