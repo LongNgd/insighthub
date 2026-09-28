@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "day": 3,
+  "mode": "real",
+  "observed_at": "2026-09-25T07:24:47Z",
+  "source_sha256": "241d400407c2e5ee04f14ac0a7871c5d5ee9bcab1ddb59c72633c87905a85ff6",
+  "ci_run_id": "36106376662",
+  "artifacts": {
+    "deployment": {
+      "path": "evidence/day3-ci/36106376662/deployment.tar.gz",
+      "sha256": "9f077f7bd3e6fafbf4b103544ed0baadb3ab568d28d5c45c76f5d9de84895a29"
+    },
+    "ci_binding": {
+      "path": "evidence/day3-ci/36106376662/source-manifest.json",
+      "sha256": "c565368b603811daaa8de7663ba7a45f8ed130cc29640d548a2cf2ed77506323"
+    }
+  }
+}
