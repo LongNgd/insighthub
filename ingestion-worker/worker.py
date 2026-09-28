@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.core.db import close_pool, initialize_database
 from app.core.errors import DocumentNotFound, ProviderError, ServiceError
 from app.services.ingestion import process_document
+from app.services.day4_fault import active_fault
 
 # The ARQ CLI applies dictConfig after importing this module. Its INFO job
 # representation includes uploaded bytes, so suppress ARQ INFO at the source.
@@ -37,6 +38,8 @@ worker_queue_probe_success = Gauge(
 )
 for outcome in ("ready", "retry", "failed", "deleted"):
     worker_jobs_total.labels(outcome)
+
+_backlog_gate = asyncio.Lock()
 
 
 async def _poll_queue_entries(redis: Any) -> None:
@@ -99,13 +102,21 @@ async def process_document_job(
     attempt = int(ctx.get("job_try", 1))
     final_attempt = attempt >= get_settings().worker_max_retries
     try:
-        chunk_count = await asyncio.to_thread(
-            process_document,
-            document_id,
-            filename,
-            content,
-            retryable_failure=not final_attempt,
-        )
+        fault = active_fault()
+        if fault is not None and fault.mode == "backlog":
+            async with _backlog_gate:
+                fault = active_fault()
+                if fault is not None and fault.mode == "backlog":
+                    await asyncio.sleep(fault.delay_seconds)
+                chunk_count = await asyncio.to_thread(
+                    process_document, document_id, filename, content,
+                    retryable_failure=not final_attempt,
+                )
+        else:
+            chunk_count = await asyncio.to_thread(
+                process_document, document_id, filename, content,
+                retryable_failure=not final_attempt,
+            )
     except DocumentNotFound:
         worker_jobs_total.labels("deleted").inc()
         _log("ingestion_deleted", document_id, "deleted", attempt)

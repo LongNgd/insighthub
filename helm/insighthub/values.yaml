@@ -47,7 +47,15 @@ web:
       cpu: 500m
       memory: 512Mi
 
+day4Chaos:
+  enabled: false
+
 monitoring:
+  alertmanager:
+    enabled: false
+    webhookSecret:
+      name: ""
+      key: api_url
   dashboard:
     enabled: false
   rules:

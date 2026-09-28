@@ -55,6 +55,14 @@ spec:
             - configMapRef:
                 name: {{ include "insighthub.fullname" . }}-app
           env:
+            {{- if .Values.day4Chaos.enabled }}
+            - name: ENVIRONMENT
+              value: day4-kind
+            - name: DAY4_CHAOS_ENABLED
+              value: "true"
+            - name: DAY4_CHAOS_CONTROL_PATH
+              value: /run/insighthub/day4/fault.json
+            {{- end }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -69,6 +77,12 @@ spec:
             - name: WORKER_METRICS_PORT
               value: {{ .Values.monitoring.worker.port | quote }}
             {{- end }}
+          {{- if .Values.day4Chaos.enabled }}
+          volumeMounts:
+            - name: day4-chaos
+              mountPath: /run/insighthub/day4
+              readOnly: true
+          {{- end }}
           readinessProbe:
             exec:
               command:
@@ -79,3 +93,9 @@ spec:
             timeoutSeconds: 5
           resources:
             {{- toYaml .Values.app.resources | nindent 12 }}
+      {{- if .Values.day4Chaos.enabled }}
+      volumes:
+        - name: day4-chaos
+          configMap:
+            name: {{ include "insighthub.fullname" . }}-day4-chaos
+      {{- end }}

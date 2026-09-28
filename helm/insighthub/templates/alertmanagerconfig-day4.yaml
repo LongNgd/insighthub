@@ -1,0 +1,37 @@
+{{- if .Values.monitoring.alertmanager.enabled }}
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: {{ include "insighthub.fullname" . }}-day4-slack
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "insighthub.labels" . | nindent 4 }}
+spec:
+  route:
+    receiver: slack-alerts
+    matchers:
+      - name: alertname
+        matchType: "=~"
+        value: "InsightHub(LLMLatencyAnomaly|QueueDepthAnomaly|HTTP5xxAnomaly)"
+    groupBy:
+      - alertname
+      - namespace
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 4h
+  receivers:
+    - name: slack-alerts
+      slackConfigs:
+        - apiURL:
+            name: {{ required "monitoring.alertmanager.webhookSecret.name is required when Alertmanager is enabled" .Values.monitoring.alertmanager.webhookSecret.name | quote }}
+            key: {{ required "monitoring.alertmanager.webhookSecret.key is required when Alertmanager is enabled" .Values.monitoring.alertmanager.webhookSecret.key | quote }}
+          sendResolved: true
+          title: '{{`[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} ({{ .CommonLabels.namespace }})`}}'
+          text: >-
+            {{`{{ range .Alerts }}`}}
+            {{`{{ .Annotations.summary }}`}}.
+            {{`{{ .Annotations.description }}`}}
+            Started: {{`{{ .StartsAt }}`}}.
+            {{`{{ if eq .Status "resolved" }}`}}Resolved: {{`{{ .EndsAt }}`}}.{{`{{ end }}`}}
+            {{`{{ end }}`}}
+{{- end }}

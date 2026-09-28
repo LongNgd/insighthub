@@ -1,0 +1,14 @@
+# kube-prometheus-stack 65.0.0, release kube-prom-stack in namespace monitoring.
+# Apply with --reuse-values so the release's existing Grafana configuration is retained.
+# The current Prometheus TSDB uses emptyDir. A Pod replacement will erase its history;
+# preserve or re-collect Day 4 RCA samples before applying this change.
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 2Gi
