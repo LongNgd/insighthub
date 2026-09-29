@@ -2,10 +2,20 @@
 
 import asyncio
 from dataclasses import dataclass
-from typing import Awaitable, Callable
+from collections.abc import Mapping
+from typing import Awaitable, Callable, TypeVar
 
-from app.errors import PermanentProcessingError, TransientProcessingError
+from app.audit import log_audit_event
+from app.errors import McpSchemaError, McpUnavailable, PermanentProcessingError, TransientProcessingError
 from app.events import NormalizedSlackEvent
+from app.mcp_client import (
+    ERRORS_5M,
+    REQUESTS_5M,
+    get_readonly_mcp_client,
+    validate_health,
+    validate_ingest_count,
+    validate_metric,
+)
 
 
 @dataclass(frozen=True)
@@ -17,6 +27,7 @@ class IntentResult:
 
 
 IntentHandler = Callable[[NormalizedSlackEvent], Awaitable[IntentResult]]
+Validated = TypeVar("Validated")
 
 
 async def route_authenticated_event(event: NormalizedSlackEvent) -> IntentResult:
@@ -48,18 +59,128 @@ def _intent_name(text: str) -> str:
 
 
 async def _health(event: NormalizedSlackEvent) -> IntentResult:
-    _ = event
-    return IntentResult("insighthub_health", "InsightHub health triage is queued.")
+    client = get_readonly_mcp_client()
+    live, ready, database_ready = await _call(
+        event, "mcp.insighthub_health", client.health(), validate_health
+    )
+    requests, errors = await asyncio.gather(
+        _prometheus_context(event, client.prometheus_requests_5m(), REQUESTS_5M),
+        _prometheus_context(event, client.prometheus_errors_5m(), ERRORS_5M),
+    )
+    status = "healthy" if live and ready and database_ready else "degraded"
+    context = (
+        "Prometheus context unavailable; check the read-only metrics backend."
+        if requests is None or errors is None
+        else f"Prometheus 5m: requests={_format_metric(requests)}, errors={_format_metric(errors)}."
+    )
+    return IntentResult(
+        "insighthub_health",
+        f"InsightHub is {status}: live={live}, ready={ready}, database_ready={database_ready}. {context}",
+    )
 
 
 async def _documents_today(event: NormalizedSlackEvent) -> IntentResult:
-    _ = event
-    return IntentResult("insighthub_documents_today", "Today's document-ingest triage is queued.")
+    date, count = await _call(
+        event,
+        "mcp.insighthub_ingest_count_today_utc",
+        get_readonly_mcp_client().ingest_count_today_utc(),
+        validate_ingest_count,
+    )
+    return IntentResult(
+        "insighthub_documents_today",
+        f"Documents ingested on {date} (UTC): {count}. Recommendation: use this aggregate for triage; document metadata is not exposed.",
+    )
 
 
 async def _failed_pods(event: NormalizedSlackEvent) -> IntentResult:
-    _ = event
-    return IntentResult("kubernetes_failed_pods", "Failed-pod triage is queued.")
+    from app.config import get_settings
+    from app.mcp_client import summarize_abnormal_pods
+
+    settings = get_settings()
+    try:
+        pods = await _call(
+            event,
+            "mcp.kubernetes.get_pods",
+            get_readonly_mcp_client().pods(),
+            lambda result: summarize_abnormal_pods(
+                result,
+                restart_threshold=settings.kubernetes_restart_threshold,
+                maximum=settings.kubernetes_max_pods,
+            ),
+        )
+    except (McpUnavailable, McpSchemaError):
+        return IntentResult(
+            "kubernetes_failed_pods",
+            f"Pod triage is unavailable for configured namespace {settings.kubernetes_namespace}. Recommendation: check the read-only Kubernetes MCP connection and RBAC.",
+        )
+    if not pods:
+        return IntentResult(
+            "kubernetes_failed_pods",
+            f"No abnormal pods found in configured namespace {settings.kubernetes_namespace}. Recommendation: continue monitoring; no action was taken.",
+        )
+    details = "; ".join(pods)
+    return IntentResult(
+        "kubernetes_failed_pods",
+        f"Pod triage for configured namespace {settings.kubernetes_namespace}: {details}. Recommendation: inspect the reported workload through approved read-only diagnostics; no action was taken.",
+    )
+
+
+async def _call(
+    event: NormalizedSlackEvent,
+    action: str,
+    operation: Awaitable[Mapping[str, object]],
+    validator: Callable[[Mapping[str, object]], Validated],
+) -> Validated:
+    """Audit one fixed capability call without retaining inputs or provider output."""
+
+    try:
+        result = validator(await operation)
+    except McpUnavailable:
+        log_audit_event(
+            event_id=event.identity,
+            user=event.user_id,
+            action=action,
+            decision="denied",
+            summary="unavailable",
+        )
+        raise
+    except McpSchemaError:
+        log_audit_event(
+            event_id=event.identity,
+            user=event.user_id,
+            action=action,
+            decision="denied",
+            summary="schema_invalid",
+        )
+        raise
+    log_audit_event(
+        event_id=event.identity,
+        user=event.user_id,
+        action=action,
+        decision="allowed",
+        summary="success",
+    )
+    return result
+
+
+async def _prometheus_context(
+    event: NormalizedSlackEvent,
+    operation: Awaitable[Mapping[str, object]],
+    query: str,
+) -> float | None:
+    try:
+        return await _call(
+            event,
+            f"mcp.prometheus.{query}",
+            operation,
+            lambda result: validate_metric(result, query),
+        )
+    except (McpUnavailable, McpSchemaError):
+        return None
+
+
+def _format_metric(value: float | None) -> str:
+    return "unavailable" if value is None else f"{value:g}"
 
 
 _ALLOWED_INTENTS: dict[str, IntentHandler] = {

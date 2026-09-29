@@ -1,6 +1,11 @@
 import http from 'node:http';
 
-export const TOOL_NAMES = Object.freeze(['insighthub_health', 'insighthub_list_documents', 'prometheus_summary']);
+export const TOOL_NAMES = Object.freeze([
+  'insighthub_health',
+  'insighthub_list_documents',
+  'insighthub_ingest_count_today_utc',
+  'prometheus_summary',
+]);
 export const QUERIES = Object.freeze({
   requests_5m: 'sum(increase(insighthub_http_requests_total[5m]))',
   errors_5m: 'sum(increase(insighthub_http_requests_total{status=~"5.."}[5m]))',
@@ -28,7 +33,7 @@ function integer(raw, fallback, max, code) {
   return Number(raw);
 }
 export function readConfig(env = process.env) {
-  const enabled = (env.INSIGHTHUB_MCP_TOOLS ?? 'insighthub_health,insighthub_list_documents')
+  const enabled = (env.INSIGHTHUB_MCP_TOOLS ?? 'insighthub_health,insighthub_list_documents,insighthub_ingest_count_today_utc')
     .split(',').map(s => s.trim()).filter(Boolean);
   if (enabled.some(n => !TOOL_NAMES.includes(n)) || new Set(enabled).size !== enabled.length) fail('INVALID_TOOL_ALLOWLIST');
   if (env.INSIGHTHUB_MCP_PROMETHEUS !== undefined && !['0', '1'].includes(env.INSIGHTHUB_MCP_PROMETHEUS)) fail('INVALID_PROMETHEUS_FLAG');
@@ -49,6 +54,7 @@ export function getJson(config, route, query, signal) {
   if (route === 'health') url = new URL('/healthz', config.api);
   else if (route === 'ready') url = new URL('/readyz', config.api);
   else if (route === 'documents') url = new URL('/documents', config.api);
+  else if (route === 'ingest_count_today_utc') url = new URL('/documents/ingest-count/today-utc', config.api);
   else if (route === 'prometheus' && config.prometheus && Object.hasOwn(QUERIES, query)) {
     url = new URL('/api/v1/query', config.prometheus);
     url.searchParams.set('query', QUERIES[query]);
@@ -142,6 +148,30 @@ export function createService(config) {
           return { id: row.id, status: row.status, chunk_count: row.chunk_count };
         });
         return result({ documents, returned: documents.length, truncated: data.length > limit });
+      }
+      if (name === 'insighthub_ingest_count_today_utc') {
+        const { data } = await getJson(config, 'ingest_count_today_utc', undefined, signal);
+        if (!data || typeof data !== 'object' || Array.isArray(data) ||
+          typeof data.date_utc !== 'string' ||
+          typeof data.interval_start_utc !== 'string' ||
+          typeof data.interval_end_utc !== 'string' ||
+          !nonnegative(data.count) ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(data.date_utc) ||
+          !data.interval_start_utc.endsWith('T00:00:00Z') ||
+          !data.interval_end_utc.endsWith('T00:00:00Z')) fail('UPSTREAM_SCHEMA');
+        const start = new Date(data.interval_start_utc);
+        const end = new Date(data.interval_end_utc);
+        if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf()) ||
+          end.valueOf() - start.valueOf() !== 86400000 ||
+          start.toISOString().slice(0, 10) !== data.date_utc ||
+          start.toISOString().replace('.000Z', 'Z') !== data.interval_start_utc ||
+          end.toISOString().replace('.000Z', 'Z') !== data.interval_end_utc) fail('UPSTREAM_SCHEMA');
+        return result({
+          date_utc: data.date_utc,
+          interval_start_utc: data.interval_start_utc,
+          interval_end_utc: data.interval_end_utc,
+          count: data.count,
+        });
       }
       if (!config.prometheus || !Object.hasOwn(QUERIES, args.query)) fail('INVALID_ARGUMENTS');
       const { data } = await getJson(config, 'prometheus', args.query, signal);

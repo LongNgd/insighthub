@@ -2,6 +2,7 @@ import asyncio
 import io
 import threading
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -13,11 +14,43 @@ from app.core.errors import InvalidDocument, ProviderError
 from app.core.metrics import http_requests_total
 from app.core.upload_limit import UploadLimitMiddleware
 from app.main import app
-from app.routers.documents import upload_document
+from app.routers.documents import _utc_day_bounds, ingest_count_today_utc, upload_document
 from app.services.ingestion import extract_text
 
 
 class HttpTests(unittest.TestCase):
+    def test_ingest_count_uses_half_open_timezone_aware_utc_bounds(self):
+        before = datetime(2026, 9, 28, 23, 59, 59, tzinfo=timezone.utc)
+        boundary = datetime(2026, 9, 29, 0, 0, 0, tzinfo=timezone.utc)
+        after = datetime(2026, 9, 29, 0, 0, 1, tzinfo=timezone.utc)
+        for value in (before, boundary, after):
+            start, end = _utc_day_bounds(value)
+            self.assertEqual(start.tzinfo, timezone.utc)
+            self.assertEqual(end - start, timedelta(days=1))
+            self.assertEqual(start.hour, 0)
+            self.assertEqual(end.hour, 0)
+        self.assertEqual(_utc_day_bounds(before)[0].date().isoformat(), "2026-09-28")
+        self.assertEqual(_utc_day_bounds(boundary)[0].date().isoformat(), "2026-09-29")
+        self.assertEqual(_utc_day_bounds(after)[0].date().isoformat(), "2026-09-29")
+
+    def test_ingest_count_response_is_aggregate_only(self):
+        with patch("app.routers.documents._utc_day_bounds") as bounds, patch(
+            "app.routers.documents.get_conn"
+        ) as get_conn:
+            start = datetime(2026, 9, 29, tzinfo=timezone.utc)
+            end = datetime(2026, 9, 30, tzinfo=timezone.utc)
+            bounds.return_value = (start, end)
+            get_conn.return_value.__enter__.return_value.execute.return_value.fetchone.return_value = (4,)
+            response = ingest_count_today_utc()
+        self.assertEqual(response, {
+            "date_utc": "2026-09-29",
+            "interval_start_utc": "2026-09-29T00:00:00Z",
+            "interval_end_utc": "2026-09-30T00:00:00Z",
+            "count": 4,
+        })
+        query, params = get_conn.return_value.__enter__.return_value.execute.call_args.args
+        self.assertIn("created_at >= %s AND created_at < %s", query)
+        self.assertEqual(params, (start, end))
     def test_whitespace_question_and_unknown_fields_rejected(self):
         client = TestClient(app)
         for data in (

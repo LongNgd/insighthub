@@ -1,5 +1,7 @@
 """Asynchronous upload endpoint backed by the durable Redis queue."""
 
+from datetime import datetime, time, timedelta, timezone
+
 from fastapi import APIRouter, HTTPException, UploadFile
 from starlette.concurrency import run_in_threadpool
 
@@ -23,6 +25,23 @@ def _create_pending_document(filename: str) -> int:
 def _delete_pending_document(document_id: int) -> None:
     with get_conn() as conn:
         conn.execute("DELETE FROM documents WHERE id = %s AND status = 'pending'", (document_id,))
+
+
+def _utc_day_bounds(now: datetime | None = None) -> tuple[datetime, datetime]:
+    """Return the half-open UTC interval for ``now`` without local-time ambiguity."""
+
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        raise ValueError("now must be timezone-aware")
+    current_utc = current.astimezone(timezone.utc)
+    start = datetime.combine(current_utc.date(), time.min, tzinfo=timezone.utc)
+    return start, start + timedelta(days=1)
+
+
+def _format_utc(value: datetime) -> str:
+    """Serialize a UTC timestamp with an explicit Z suffix."""
+
+    return value.isoformat().replace("+00:00", "Z")
 
 
 @router.post("", status_code=202)
@@ -75,6 +94,25 @@ def list_documents():
         }
         for r in rows
     ]
+
+
+@router.get("/ingest-count/today-utc")
+def ingest_count_today_utc() -> dict[str, str | int]:
+    """Count documents created during the current UTC day without exposing metadata."""
+
+    interval_start, interval_end = _utc_day_bounds()
+    with get_conn() as conn:
+        count = conn.execute(
+            "SELECT count(*) FROM documents "
+            "WHERE created_at >= %s AND created_at < %s",
+            (interval_start, interval_end),
+        ).fetchone()[0]
+    return {
+        "date_utc": interval_start.date().isoformat(),
+        "interval_start_utc": _format_utc(interval_start),
+        "interval_end_utc": _format_utc(interval_end),
+        "count": count,
+    }
 
 
 @router.delete("/{document_id}", status_code=204)

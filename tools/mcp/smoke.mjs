@@ -10,9 +10,9 @@ const env = live ? Object.fromEntries(Object.entries(process.env).filter(([key])
   INSIGHTHUB_API_URL: backend.url,
   INSIGHTHUB_PROMETHEUS_URL: backend.url,
   INSIGHTHUB_MCP_PROMETHEUS: '1',
-  INSIGHTHUB_MCP_TOOLS: 'insighthub_health,insighthub_list_documents,prometheus_summary',
+  INSIGHTHUB_MCP_TOOLS: 'insighthub_health,insighthub_list_documents,insighthub_ingest_count_today_utc,prometheus_summary',
 };
-const expectedTools = (env.INSIGHTHUB_MCP_TOOLS ?? 'insighthub_health,insighthub_list_documents')
+const expectedTools = (env.INSIGHTHUB_MCP_TOOLS ?? 'insighthub_health,insighthub_list_documents,insighthub_ingest_count_today_utc')
   .split(',').map(s => s.trim()).filter(Boolean).sort();
 assert.ok(expectedTools.length > 0, 'Smoke requires at least one enabled tool to exercise tools/call');
 const results = [];
@@ -35,6 +35,10 @@ try {
         if (name === 'insighthub_list_documents') {
           assert.ok(result.structuredContent.returned <= 2);
           for (const row of result.structuredContent.documents) assert.deepEqual(Object.keys(row).sort(), ['chunk_count', 'id', 'status']);
+        }
+        if (name === 'insighthub_ingest_count_today_utc') {
+          assert.deepEqual(Object.keys(result.structuredContent).sort(), ['count', 'date_utc', 'interval_end_utc', 'interval_start_utc']);
+          assert.ok(Number.isSafeInteger(result.structuredContent.count));
         }
         calls.push(name);
       }

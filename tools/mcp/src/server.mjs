@@ -13,6 +13,10 @@ const definitions = {
     description: 'List up to 20 local document IDs, status and chunk counts. No filenames or content.',
     inputSchema: z.strictObject({ limit: z.number().int().min(1).max(20).optional() }),
   },
+  insighthub_ingest_count_today_utc: {
+    description: 'Count documents created in the current UTC day. Returns no document metadata.',
+    inputSchema: z.strictObject({}),
+  },
   prometheus_summary: {
     description: 'Read one aggregate InsightHub metric via a fixed 5-minute or instant query. No labels.',
     inputSchema: z.strictObject({ query: z.enum(['requests_5m', 'errors_5m', 'documents']) }),

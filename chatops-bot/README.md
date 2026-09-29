@@ -23,6 +23,31 @@ Optional bounded-operation settings are `CHATOPS_QUEUE_TIMEOUT_SECONDS`,
 `CHATOPS_REPLY_TTL_SECONDS`, `CHATOPS_INTENT_TIMEOUT_SECONDS`,
 `CHATOPS_MCP_TIMEOUT_SECONDS`, and `CHATOPS_SLACK_REPLY_TIMEOUT_SECONDS`.
 
+## Read-only MCP runtime
+
+The worker has a separate JSON-RPC MCP transport; it does not read the Codex
+desktop MCP configuration or inherit a kubeconfig. Operators configure the
+following values from deployment configuration/Secrets (never commit values):
+
+- `CHATOPS_INSIGHTHUB_MCP_URL` and optional
+  `CHATOPS_INSIGHTHUB_MCP_BEARER_TOKEN`: the fixed InsightHub read-only MCP
+  transport exposing health, Prometheus summaries and UTC ingest count.
+- `CHATOPS_KUBERNETES_MCP_URL` and optional
+  `CHATOPS_KUBERNETES_MCP_BEARER_TOKEN`: the dedicated read-only Kubernetes
+  MCP transport authenticated as the `mcp-readonly` ServiceAccount.
+- `CHATOPS_KUBERNETES_NAMESPACE`: operator-owned namespace (default
+  `insighthub-prod`), never derived from a Slack message.
+- `CHATOPS_MCP_TIMEOUT_SECONDS` (0.1–10),
+  `CHATOPS_MCP_MAX_RESPONSE_BYTES` (1024–262144),
+  `CHATOPS_KUBERNETES_MAX_PODS` (1–20), and
+  `CHATOPS_KUBERNETES_RESTART_THRESHOLD` (1–100).
+
+The only worker capabilities are `insighthub_health`,
+`prometheus_summary` with `requests_5m`/`errors_5m`,
+`insighthub_ingest_count_today_utc`, and Kubernetes `get_pods` scoped to the
+configured namespace. The router rejects all other Slack text; it never accepts
+tool names, PromQL, URLs, namespaces, shell commands, or mutation requests.
+
 Dedup keys use a SHA-256 identity over team/event ID; Redis performs the initial
 `SET NX EX` claim atomically. A failed enqueue releases only its own claim. The
 worker retries classified transient failures at most three times and records an

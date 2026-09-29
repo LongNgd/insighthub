@@ -29,3 +29,15 @@ class TransientProcessingError(ChatopsError):
     """A bounded-retry failure from an approved worker dependency."""
 
     code = "transient_processing_error"
+
+
+class McpUnavailable(TransientProcessingError):
+    """An approved read-only MCP capability did not complete before its deadline."""
+
+    code = "mcp_unavailable"
+
+
+class McpSchemaError(PermanentProcessingError):
+    """An MCP response did not meet the narrow projection expected by the bot."""
+
+    code = "mcp_schema_error"

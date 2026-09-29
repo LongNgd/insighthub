@@ -26,6 +26,7 @@ for (const mode of ['modern','legacy']) {
     assert.equal(list.tools[0].annotations.readOnlyHint,true);
     for (const [name,args] of [
       ['insighthub_list_documents',{}],['prometheus_summary',{query:'documents'}],
+      ['insighthub_ingest_count_today_utc', {}],
       ['delete_document',{id:1}],['shell',{command:'touch '+CANARY}],['read_file',{path:'/etc/passwd'}],
       [CANARY,{}],['insighthub_health',{url:'http://169.254.169.254'}],
       ['insighthub_health',{[CANARY]:true}],
@@ -57,6 +58,22 @@ test('empty allowlist exposes no tools and denies direct invocation', async t =>
   assert.deepEqual((await s.client.listTools()).tools,[]);
   await denied(s.client,'insighthub_health',{});
   assert.equal(f.requests.length,0);
+});
+test('ingest-count capability has no inputs and direct calls remain allowlisted', async t => {
+  const f = await fixture(); t.after(f.close);
+  const s = await connectClient('modern', {
+    INSIGHTHUB_API_URL: f.url,
+    INSIGHTHUB_MCP_TOOLS: 'insighthub_ingest_count_today_utc',
+  });
+  t.after(() => s.client.close());
+  assert.deepEqual((await s.client.listTools()).tools.map(tool => tool.name), ['insighthub_ingest_count_today_utc']);
+  await denied(s.client, 'insighthub_ingest_count_today_utc', { query: 'SELECT * FROM documents' });
+  assert.equal(f.requests.length, 0);
+  const result = await s.client.callTool({ name: 'insighthub_ingest_count_today_utc', arguments: {} });
+  assert.deepEqual(result.structuredContent, {
+    date_utc: '2026-09-29', interval_start_utc: '2026-09-29T00:00:00Z',
+    interval_end_utc: '2026-09-30T00:00:00Z', count: 3,
+  });
 });
 test('invalid endpoint exits without reflecting a credential on stderr/stdout', async () => {
   const child=spawn(process.execPath,[fileURLToPath(new URL('../src/server.mjs',import.meta.url))],

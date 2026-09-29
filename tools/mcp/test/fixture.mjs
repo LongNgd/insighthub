@@ -12,6 +12,10 @@ export async function fixture(handler) {
       id: i + 1, status: 'ready', chunk_count: 2, filename: CANARY,
       content: CANARY, created_at: CANARY, api_key: CANARY,
     }))));
+    else if (req.url === '/documents/ingest-count/today-utc') res.end(JSON.stringify({
+      date_utc: '2026-09-29', interval_start_utc: '2026-09-29T00:00:00Z',
+      interval_end_utc: '2026-09-30T00:00:00Z', count: 3, filename: CANARY,
+    }));
     else if (req.url.startsWith('/api/v1/query?')) res.end(JSON.stringify({
       status: 'success', data: { resultType: 'vector', result: [{ metric: { token: CANARY }, value: [1, '3'] }] },
       warnings: [CANARY],

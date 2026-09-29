@@ -15,7 +15,7 @@ test('origin parser rejects SSRF, DNS/rebinding, path and credential inputs', ()
   assert.equal(loopbackOrigin('http://[::1]:8000'), 'http://[::1]:8000');
 });
 test('configuration is closed by default and fails on misspelled controls', () => {
-  assert.deepEqual(readConfig({}).enabled, ['insighthub_health', 'insighthub_list_documents']);
+  assert.deepEqual(readConfig({}).enabled, ['insighthub_health', 'insighthub_list_documents', 'insighthub_ingest_count_today_utc']);
   assert.equal(readConfig({}).prometheus, null);
   assert.deepEqual(readConfig({ INSIGHTHUB_MCP_TOOLS: '' }).enabled, []);
   for (const env of [
@@ -33,13 +33,19 @@ test('service projects metadata, limits rows, uses only fixed GET routes', async
   assert.deepEqual(health.structuredContent, { live: true, ready: true, databaseReady: true });
   const docs = await call('insighthub_list_documents', { limit: 1 });
   assert.deepEqual(docs.structuredContent, { documents: [{ id: 1, status: 'ready', chunk_count: 2 }], returned: 1, truncated: true });
-  assert.ok(!JSON.stringify([health, docs]).includes(CANARY));
+  const ingest = await call('insighthub_ingest_count_today_utc', {});
+  assert.deepEqual(ingest.structuredContent, {
+    date_utc: '2026-09-29', interval_start_utc: '2026-09-29T00:00:00Z',
+    interval_end_utc: '2026-09-30T00:00:00Z', count: 3,
+  });
+  assert.ok(!JSON.stringify([health, docs, ingest]).includes(CANARY));
   for (const args of [{limit:0}, {limit:21}, {limit:1.5}, {limit:'2'}, {content:true}, {url:'http://evil'}, {command:'id'}])
     await assert.rejects(call('insighthub_list_documents', args), /INVALID_ARGUMENTS/);
   await assert.rejects(call('prometheus_summary', { query: 'documents' }), /TOOL_DENIED/);
   await assert.rejects(getJson(config, '/documents/1'), /ENDPOINT_DENIED/);
   await assert.rejects(getJson(config, 'prometheus', 'documents'), /ENDPOINT_DENIED/);
-  assert.deepEqual(f.requests.map(r => r.url).sort(), ['/documents','/healthz','/readyz']);
+  await assert.rejects(call('insighthub_ingest_count_today_utc', { date: '2026-09-29' }), /INVALID_ARGUMENTS/);
+  assert.deepEqual(f.requests.map(r => r.url).sort(), ['/documents','/documents/ingest-count/today-utc','/healthz','/readyz']);
   assert.ok(f.requests.every(r => r.method === 'GET' && r.authorization === undefined));
 });
 test('readiness 503 is a valid unhealthy observation', async t => {

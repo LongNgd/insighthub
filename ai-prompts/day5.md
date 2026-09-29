@@ -170,3 +170,113 @@ Triển khai pipeline xử lý Slack event bất đồng bộ cho `chatops-bot/`
 - Dedup dùng identity opaque từ workspace/event ID, `SET NX EX` atomic và TTL cấu hình. Khi enqueue thất bại, chỉ claim của request hiện tại được giải phóng; duplicate không tạo job hoặc reply mới.
 - Worker chỉ route intent read-only nằm trong allowlist, retry lỗi transient đã phân loại tối đa ba lần với exponential backoff; validation, permission/allowlist và permanent errors không retry. Audit chỉ ghi metadata/sanitized summary.
 - Reply giữ trạng thái idempotent bền vững và stable client message identity. Rủi ro còn lại là cần xác nhận Slack LIVE và MCP Day 2 adapters/permissions trong evidence riêng; test double không thay bằng chứng production.
+
+## Prompt 3 - ChatOps read-only MCP intents
+
+**Host**: ChatGPT-Codex
+
+**Model**: Codex (GPT-5)
+
+**Ngày ghi log**: 29/09/2026 (+07:00)
+
+**Context / Evidence**: [AGENTS.md](../AGENTS.md), [Day 5 specification](../Running-Project-Specification-Student.md), [Day 5 lab guide](../docs/lab-guides/Day5-ChatOps-Incident-Response.md), [verification contract](../scripts/VERIFICATION_CONTRACT.md), [documents router](../api/app/routers/documents.py), [custom MCP](../tools/mcp/), [ChatOps queue/worker](../chatops-bot/app/queue.py), [ChatOps worker](../chatops-bot/app/worker.py), [Kubernetes read-only RBAC](../kubernetes/mcp/mcp-readonly.yaml), [ChatOps tests](../chatops-bot/tests/).
+
+**Prompt gốc**:
+
+```text
+## 1. Mục tiêu (Goal)
+
+Hoàn thiện ba intent ChatOps thật cho `chatops-bot/`, dùng capability MCP read-only có allowlist và trả triage/context/recommendation an toàn:
+
+1. **Health InsightHub**: kết hợp InsightHub health/readiness và Prometheus context cố định.
+2. **Số document ingest hôm nay**: đếm chính xác theo ngày UTC, không truy vấn tự do và không lộ metadata tài liệu.
+3. **Pods lỗi**: dùng Kubernetes MCP với quyền read-only/RBAC, liệt kê pod bất thường và trả triage/recommendation, không thực hiện mutation.
+
+Bổ sung capability read-only cố định `insighthub_ingest_count_today_utc` để bot có thể trả lời đúng intent thứ hai.
+
+## 2. Ràng buộc (Constraints - PHẢI TUÂN THỦ)
+
+- Chỉ sửa các file cần thiết trong `chatops-bot/**`, `tools/mcp/**`, `api/app/routers/documents.py`, cấu hình/dependency liên quan và tests. Không sửa database schema, web, ingestion pipeline, Day 3/4 infrastructure hay thay đổi MCP quyền ghi.
+- Không thêm endpoint `/upload`, `/status`, truy vấn SQL tự do, PromQL từ model, URL tùy ý, shell command, `kubectl exec`, hoặc bất kỳ tool mutation/delete/scale nào.
+- Không thay đổi API contract hiện có. Endpoint mới chỉ được là read-only, response tối thiểu, không chứa filename, document id, document content, user data hoặc lỗi provider thô.
+- Bổ sung endpoint fixed-purpose để đếm ingest của **ngày UTC hiện tại**, không nhận ngày, filter hay query từ client/model. Response chỉ chứa:
+  - `date_utc`
+  - `interval_start_utc`
+  - `interval_end_utc`
+  - `count`
+- Ngày được định nghĩa là `[00:00:00Z, 00:00:00Z ngày kế tiếp)`; dùng thời gian UTC timezone-aware và query có bound rõ ràng. Không đổi schema database.
+- Bổ sung MCP tool `insighthub_ingest_count_today_utc` không nhận arguments, chỉ gọi endpoint fixed-purpose nói trên; cập nhật allowlist, manifest, SDK tests và projection an toàn.
+- Health intent chỉ được dùng capability cố định:
+  - `insighthub_health`;
+  - Prometheus summary với các query ID allowlist hiện có như `requests_5m` và `errors_5m`.
+  Không cho model gửi PromQL, URL, labels hay time range tùy ý.
+- Pods intent phải đi qua Kubernetes MCP read-only với namespace lấy từ cấu hình operator, không từ câu hỏi người dùng. Chỉ cho phép list/get dữ liệu cần cho triage; không watch vô hạn, exec, logs, apply, patch, delete hoặc scale.
+- Pod được xem là cần triage khi có trạng thái/condition/reason bất thường đã định nghĩa rõ trong code, ví dụ `Failed`, `CrashLoopBackOff`, `ImagePullBackOff`, `CreateContainerConfigError`, restart bất thường hoặc condition chưa ready. Response phải giới hạn số pod, sanitize field và nêu recommendation; không trả raw Kubernetes object.
+- Bot không được thừa kế ngầm kubeconfig hoặc Codex desktop MCP config. MCP transport, namespace, timeouts và credential reference phải là cấu hình runtime riêng của bot qua env/Secret.
+- Không gọi tool theo prompt tự do. Intent router phải map ba intent sang capability cố định ở server-side; intent không hỗ trợ phải từ chối/an toàn.
+- Mọi MCP call phải có deadline, bounded output, controlled/sanitized error và audit JSON. Không log raw Slack body, secret, kubeconfig, document content, raw MCP/provider error hoặc full pod object.
+- Giữ permission boundary: ba intent này là read-only. Recommendation không tự biến thành scale/action; mutation vẫn phải qua approval flow riêng.
+- Dùng type hints đầy đủ, Python/TypeScript style theo từng module, dependency pin/hash và không dùng `latest`.
+- Không sửa/xóa/skip/xfail test hay giảm assertion để làm test xanh.
+
+## 3. Tiêu chí thành công (Acceptance Criteria)
+
+- Intent health trả lời với API liveness/readiness và Prometheus request/error context từ tool allowlist; Prometheus unavailable phải trả triage đã sanitize, không bịa số liệu.
+- Intent ingest hôm nay trả count đúng cho UTC boundary, gồm test tại `00:00:00Z`, trước boundary và sau boundary; không trả document metadata.
+- `insighthub_ingest_count_today_utc` không nhận argument, không nhận date/query/URL tùy ý, không đăng ký khi không nằm trong allowlist và bị chặn nếu gọi trực tiếp khi disabled.
+- Intent pods lỗi gọi Kubernetes MCP read-only với namespace cấu hình; kết quả chỉ gồm thông tin triage cần thiết, có giới hạn số lượng và recommendation.
+- Pod healthy không bị báo sai là lỗi; pod bất thường có reason/restart/condition phù hợp được nêu rõ.
+- Kubernetes/Prometheus MCP lỗi hoặc timeout không lộ exception thô, không retry vô hạn và không làm bot gọi fallback quyền cao hơn.
+- Intent không hỗ trợ hoặc prompt cố ép tool mutation bị deny; không có tool call tự do.
+- Audit có event/run ID, UTC timestamp, user, action/tool, decision và sanitized result summary cho từng MCP call.
+- Có tests cho:
+  - health healthy/degraded/Prometheus unavailable;
+  - ingest count UTC boundary và tool input/allowlist;
+  - pods healthy/failing/malformed/oversized response/MCP timeout;
+  - namespace không do user control;
+  - prompt injection/tool mutation denial;
+  - audit sanitization.
+- `npm --prefix tools/mcp test`, `pytest chatops-bot/tests/`, các API tests liên quan, và `git diff --check` đều PASS.
+
+## 4. Ví dụ pattern tham chiếu (Reference)
+
+- `tools/mcp/src/core.mjs` và `tools/mcp/src/server.mjs`: capability fixed-route, allowlist hai lớp, timeout, projection và sanitize error.
+- `tools/mcp/manifest.json` cùng các test MCP: cập nhật tool contract thay vì tạo một client/tool ad-hoc.
+- `api/app/routers/documents.py`: thêm read-only endpoint tối thiểu theo router/config/error pattern hiện có.
+- `api/app/routers/health.py` và `api/app/core/metrics.py`: health/readiness và metric contract InsightHub.
+- `.codex/config.toml` và `kubernetes/mcp/mcp-readonly.yaml`: Kubernetes MCP/read-only RBAC là reference quyền; bot phải có runtime configuration và identity riêng.
+- `Running-Project-Specification-Student.md` mục 9: ba intent, MCP K8s/Prometheus, triage/context, permission enforcement và audit.
+- `scripts/VERIFICATION_CONTRACT.md`: audit fields, test observation và nguyên tắc verifier chỉ là partial evidence.
+
+## 5. Quy trình thực hiện (Process / Output Expected)
+
+- Trình bày KẾ HOẠCH (PLAN) trước, nêu rõ:
+  1. file dự kiến sửa/thêm;
+  2. API contract mới cho count UTC;
+  3. MCP manifest/allowlist/tool schema thay đổi;
+  4. kiến trúc bot MCP client và cấu hình runtime riêng;
+  5. tiêu chí phân loại pod lỗi;
+  6. response/triage format và giới hạn output;
+  7. test matrix.
+- ĐỢI TÔI DUYỆT PLAN rồi mới sửa file.
+- Trước khi sửa, đọc toàn bộ implementation và tests hiện có của `tools/mcp`, API documents/health, ChatOps queue/worker và Kubernetes RBAC.
+- Sau khi sửa, chạy các test ở Acceptance Criteria và báo cáo output.
+- Báo cáo rõ tên các env var/Secret reference cần operator cấu hình, nhưng không in secret hay kubeconfig.
+- Cung cấp cách verify thủ công cho ba intent bằng test transport trước; Slack LIVE, ngrok/Ingress, Secret creation hay Kubernetes mutation chỉ thực hiện khi có quyền riêng.
+```
+
+**Vì sao prompt hiệu quả**:
+
+- Chuyển ba intent thành capability cố định ở server-side, nên Slack text không thể đưa PromQL, URL, namespace hoặc lệnh mutation vào đường gọi tool.
+- Tách aggregate UTC ingest khỏi endpoint metadata, đồng thời yêu cầu half-open interval và projection tối thiểu để bảo vệ dữ liệu tài liệu.
+- Buộc pod triage qua MCP read-only/RBAC, output bounded và tiêu chí bất thường xác định rõ; recommendation không có quyền tự động biến thành action.
+- Biến các ràng buộc deadline, allowlist, error sanitization và audit thành acceptance tests cụ thể cho cả capability lẫn bot worker.
+
+**Quyết định / Review**:
+
+- Người dùng đã duyệt plan trước khi sửa source. Phạm vi thực hiện giữ trong `api/app/routers/documents.py`, `tools/mcp/**`, `chatops-bot/**`, config/template liên quan và tests; không sửa schema, web, ingestion pipeline, Day 3/4 infrastructure hoặc MCP write permission.
+- Chấp nhận endpoint `GET /documents/ingest-count/today-utc` không nhận input, dùng UTC timezone-aware với điều kiện `created_at >= start AND created_at < end`, và chỉ trả bốn field aggregate đã yêu cầu.
+- Chấp nhận tool `insighthub_ingest_count_today_utc` schema `{}` với fixed route và hai lớp allowlist. Tool bị disable không được đăng ký và direct call bị từ chối; không có SQL/date/query/URL từ caller.
+- Bot dùng MCP JSON-RPC transport riêng qua env/Secret, không đọc `.codex/config.toml` hoặc thừa kế kubeconfig. K8s chỉ gọi `get_pods` với namespace operator-owned; response projection giới hạn pod và chỉ giữ phase/restart/reason an toàn.
+- Đã thêm tests cho health healthy/degraded/Prometheus unavailable, UTC boundary, allowlist/input, pod healthy/failing/malformed/oversized/timeout, namespace injection, mutation denial và audit sanitization. `make test-backend` (62 tests), `pytest chatops-bot/tests/` (40 tests), `make test-mcp` (23 tests cùng fixture smoke) và `git diff --check` đều PASS tại thời điểm review.
+- Rủi ro còn lại: test transport/fixture không phải Slack LIVE hoặc attestation Kubernetes/Prometheus production. Không gửi Slack message thật, không tạo Secret, không mở ngrok/Ingress và không mutation Kubernetes/cloud.

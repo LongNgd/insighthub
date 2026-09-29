@@ -10,6 +10,7 @@ from pathlib import Path
 import threading
 import unittest
 import uuid
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 from support import configured, real_config
@@ -159,6 +160,30 @@ class IntegrationTests(unittest.TestCase):
             'insighthub_documents_total{status="ready"} 0.0',
             self.client.get("/metrics").text,
         )
+
+    def test_ingest_count_today_utc_excludes_both_interval_endpoints(self):
+        start = datetime(2026, 9, 29, tzinfo=timezone.utc)
+        end = start + timedelta(days=1)
+        with db.get_conn() as conn:
+            for filename, created_at in (
+                ("before.txt", start - timedelta(microseconds=1)),
+                ("boundary.txt", start),
+                ("after.txt", end - timedelta(microseconds=1)),
+                ("next-day.txt", end),
+            ):
+                conn.execute(
+                    "INSERT INTO documents(filename, created_at) VALUES (%s, %s)",
+                    (filename, created_at),
+                )
+        with patch("app.routers.documents._utc_day_bounds", return_value=(start, end)):
+            response = self.client.get("/documents/ingest-count/today-utc")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {
+            "date_utc": "2026-09-29",
+            "interval_start_utc": "2026-09-29T00:00:00Z",
+            "interval_end_utc": "2026-09-30T00:00:00Z",
+            "count": 2,
+        })
 
     def test_successful_retry_is_noop_and_conflicting_payload_is_409(self):
         document_id = self.create_document()

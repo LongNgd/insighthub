@@ -41,6 +41,7 @@ Modern dùng `server/discover`; legacy dùng `initialize` và `notifications/ini
 |---|---|---|
 | `insighthub_health` | `{}` | `live`, `ready`, `databaseReady`: boolean |
 | `insighthub_list_documents` | `{"limit":2}`, mặc định 10, từ 1 đến 20 | `documents: [{id,status,chunk_count}]`, `returned`, `truncated` |
+| `insighthub_ingest_count_today_utc` | `{}` | `date_utc`, UTC day start/end and aggregate `count`; no document metadata |
 | `prometheus_summary`, opt-in | `{"query":"requests_5m"}`, hoặc `errors_5m`, `documents` | Query ID, giá trị aggregate hoặc null, cửa sổ `5m`/`instant` |
 
 Tool bị loại khỏi allowlist không được đăng ký và vẫn bị chặn khi gọi thẳng `tools/call`. Service kiểm tra quyền thêm lần nữa. Chuỗi rỗng là deny all, tên không hợp lệ làm startup fail. `readOnlyHint` chỉ là mô tả; quyền do code server thực thi.
@@ -52,7 +53,7 @@ Không có tool đọc file, nội dung tài liệu, chat, upload, delete, exec,
 | Biến môi trường | Mặc định | Giới hạn |
 |---|---|---|
 | `INSIGHTHUB_API_URL` | `http://127.0.0.1:8000` | Origin loopback, không path/query/userinfo |
-| `INSIGHTHUB_MCP_TOOLS` | `insighthub_health,insighthub_list_documents` | CSV tên tool chính xác; rỗng là deny all |
+| `INSIGHTHUB_MCP_TOOLS` | `insighthub_health,insighthub_list_documents,insighthub_ingest_count_today_utc` | CSV tên tool chính xác; rỗng là deny all |
 | `INSIGHTHUB_MCP_PROMETHEUS` | `0` | Chỉ `0` hoặc `1` |
 | `INSIGHTHUB_PROMETHEUS_URL` | `http://127.0.0.1:9090` khi bật | Origin loopback |
 | `INSIGHTHUB_MCP_TIMEOUT_MS` | `1500` | Số nguyên 1-5000, deadline tuyệt đối cho mỗi HTTP request |
@@ -63,7 +64,7 @@ Chấp nhận `127.0.0.1`, `[::1]`, hoặc `localhost` được đổi thành `1
 ```sh
 # POSIX shell: bật Prometheus cho server, sau khi Prometheus đã chạy.
 INSIGHTHUB_MCP_PROMETHEUS=1 \
-INSIGHTHUB_MCP_TOOLS=insighthub_health,insighthub_list_documents,prometheus_summary \
+INSIGHTHUB_MCP_TOOLS=insighthub_health,insighthub_list_documents,insighthub_ingest_count_today_utc,prometheus_summary \
 node tools/mcp/src/server.mjs
 ```
 

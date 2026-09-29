@@ -63,7 +63,8 @@
   "tools": {
     "default": [
       "insighthub_health",
-      "insighthub_list_documents"
+      "insighthub_list_documents",
+      "insighthub_ingest_count_today_utc"
     ],
     "optional": [
       "prometheus_summary"
@@ -91,7 +92,7 @@
     "prometheusQueryTimeoutSeconds": 1
   },
   "scope": {
-    "reads": "GET /healthz, /readyz, /documents; optional /api/v1/query with fixed query identifiers",
+    "reads": "GET /healthz, /readyz, /documents, /documents/ingest-count/today-utc; optional /api/v1/query with fixed query identifiers",
     "omits": [
       "document content",
       "filenames",
