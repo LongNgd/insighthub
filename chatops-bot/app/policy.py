@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Protocol
 
-from app.audit import log_audit_event
+from app.audit import ensure_audit_sink_available, log_audit_event
 from app.config import Settings, get_settings
 from app.errors import PolicyDenied, PolicyUnavailable
 from app.events import NormalizedSlackEvent
@@ -38,6 +38,7 @@ class ActionRequest:
 
     request_id: str
     event_id: str
+    run_id: str
     requester_user_id: str
     action: str
     target: str
@@ -51,6 +52,7 @@ class ActionRequest:
             "action": self.action,
             "arguments": self.arguments,
             "event_id": self.event_id,
+            "run_id": self.run_id,
             "request_id": self.request_id,
             "requested_at": self.requested_at,
             "requester_user_id": self.requester_user_id,
@@ -68,6 +70,7 @@ class ActionRequest:
             "arguments": self.arguments,
             "binding_hash": self.binding_hash,
             "event_id": self.event_id,
+            "run_id": self.run_id,
             "expires_at": self.expires_at,
             "request_id": self.request_id,
             "requested_at": self.requested_at,
@@ -178,6 +181,7 @@ async def create_scale_request(
     parsed = parse_scale_command(event.text, current)
     if parsed is None:
         return None
+    ensure_audit_sink_available()
     existing_id = await _load_event_request_id(redis, event.identity)
     if existing_id is not None:
         existing = await _load_request(redis, existing_id)
@@ -188,6 +192,7 @@ async def create_scale_request(
     request = ActionRequest(
         request_id=secrets.token_urlsafe(24),
         event_id=event.identity,
+        run_id=event.run_id,
         requester_user_id=event.user_id,
         action="scale_deployment",
         target=target,
@@ -224,14 +229,13 @@ async def create_scale_request(
         raise PolicyUnavailable()
     log_audit_event(
         event_id=request.event_id,
+        run_id=request.run_id,
         user=request.requester_user_id,
         action=request.action,
-        target=request.target,
+        tool="policy",
         decision="approval_required",
-        summary="write_approval_required",
         approval_state="approval_required",
-        expires_at=request.expires_at,
-        argument_keys=sorted(request.arguments),
+        summary="write_approval_required",
     )
     return request
 
@@ -242,6 +246,7 @@ async def approve_request(
     """Allow a separately authenticated, configured approver exactly once."""
 
     current = settings or get_settings()
+    ensure_audit_sink_available(current)
     request = await _load_request(redis, request_id)
     if request is None:
         _audit_denial(request_id, approver_user_id, "approval_missing")
@@ -299,6 +304,7 @@ async def execute_approved_request(
         if isinstance(approval, dict) and isinstance(approval.get("approver_user_id"), str)
         else None
     )
+    ensure_audit_sink_available()
     if definition.tier is ActionTier.WRITE:
         await _consume_approval(redis, request)
     else:
@@ -311,14 +317,14 @@ async def execute_approved_request(
 
     log_audit_event(
         event_id=request.event_id,
+        run_id=request.run_id,
         user=request.requester_user_id,
-        action=f"executor.{request.action}",
-        target=request.target,
+        action=request.action,
+        tool="kubernetes.patch_deployment_scale",
         approver_user_id=approver,
         decision="allowed",
-        summary="dispatch",
         approval_state="consumed",
-        argument_keys=sorted(request.arguments),
+        summary="execution_dispatched",
     )
     try:
         await executor.execute(request)
@@ -329,7 +335,7 @@ async def execute_approved_request(
     except Exception:
         _audit_request(request, approver, "denied", "executor_failed", "consumed")
         raise
-    _audit_request(request, approver, "allowed", "executed", "consumed")
+    _audit_request(request, approver, "allowed", "execution_completed", "consumed")
     return ExecutionResult("executed")
 
 
@@ -343,6 +349,7 @@ async def issue_confirmation(
     """Provide a future destructive action with an opaque, Redis-backed token."""
 
     current = settings or get_settings()
+    ensure_audit_sink_available(current)
     definition = catalog.get(request.action)
     if definition is None or definition.tier is not ActionTier.DESTRUCTIVE:
         raise PolicyDenied()
@@ -448,6 +455,7 @@ async def _load_request(redis: Any, request_id: str) -> ActionRequest | None:
         request = ActionRequest(
             request_id=_required_string(record, "request_id"),
             event_id=_required_string(record, "event_id"),
+            run_id=_required_string(record, "run_id"),
             requester_user_id=_required_string(record, "requester_user_id"),
             action=_required_string(record, "action"),
             target=_required_string(record, "target"),
@@ -498,6 +506,7 @@ async def _record_reconciliation(redis: Any, request: ActionRequest) -> None:
     record = {
         "action": request.action,
         "event_id": request.event_id,
+        "run_id": request.run_id,
         "request_id": request.request_id,
         "state": "reconciliation_required",
         "target": request.target,
@@ -574,16 +583,20 @@ def _audit_request(
     summary: str,
     approval_state: str | None = None,
 ) -> None:
+    safe_approver = (
+        approver
+        if approver is not None and approver in get_settings().approver_user_ids
+        else None
+    )
     log_audit_event(
         event_id=request.event_id,
+        run_id=request.run_id,
         user=request.requester_user_id,
         action=request.action,
-        target=request.target,
-        approver_user_id=approver,
+        tool="policy",
+        approver_user_id=safe_approver,
         decision=decision,
         summary=summary,
-        argument_keys=sorted(request.arguments),
-        expires_at=request.expires_at,
         approval_state=approval_state,
     )
 
@@ -591,8 +604,11 @@ def _audit_request(
 def _audit_denial(event_id: str, user: str, summary: str) -> None:
     log_audit_event(
         event_id=event_id,
+        run_id="unknown",
         user=user,
         action="policy",
+        tool="policy",
         decision="denied",
+        approval_state="denied",
         summary=summary,
     )

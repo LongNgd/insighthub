@@ -31,6 +31,12 @@ class TransientProcessingError(ChatopsError):
     code = "transient_processing_error"
 
 
+class AuditUnavailable(TransientProcessingError):
+    """Raised when the configured audit sink cannot safely record an action."""
+
+    code = "audit_unavailable"
+
+
 class McpUnavailable(TransientProcessingError):
     """An approved read-only MCP capability did not complete before its deadline."""
 

@@ -40,6 +40,8 @@ class Settings:
     write_enabled: bool
     write_kubernetes_api_url: str
     write_kubernetes_bearer_token: str
+    audit_sink: str
+    audit_file: str
 
     @property
     def slack_adapter_ready(self) -> bool:
@@ -108,6 +110,8 @@ def get_settings() -> Settings:
         write_kubernetes_bearer_token=os.getenv(
             "CHATOPS_WRITE_KUBERNETES_BEARER_TOKEN", ""
         ).strip(),
+        audit_sink=_audit_sink("CHATOPS_AUDIT_SINK"),
+        audit_file=os.getenv("CHATOPS_AUDIT_FILE", "").strip(),
     )
 
 
@@ -167,6 +171,17 @@ def _boolean(name: str, default: bool) -> bool:
     if value == "0":
         return False
     raise ValueError(f"{name} must be 0 or 1")
+
+
+def _audit_sink(name: str) -> str:
+    """Accept only the two operator-configured audit sink types."""
+
+    value = os.getenv(name, "stdout").strip()
+    if value not in {"stdout", "file"}:
+        raise ValueError(f"{name} must be stdout or file")
+    if value == "file" and not os.getenv("CHATOPS_AUDIT_FILE", "").strip():
+        raise ValueError("CHATOPS_AUDIT_FILE is required for file audit sink")
+    return value
 
 
 def _identifier_set(name: str) -> frozenset[str]:

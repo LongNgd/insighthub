@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 from app.config import get_settings
-from app.errors import MutationOutcomeUnknown, PolicyDenied
+from app.errors import AuditUnavailable, MutationOutcomeUnknown, PolicyDenied
 from app.events import NormalizedSlackEvent
 from app.policy import (
     DEFAULT_CATALOG,
@@ -163,6 +163,7 @@ def run(coroutine: Any) -> Any:
 def scale_event(text: str = "scale api to 3", user: str = "U_REQUESTER") -> NormalizedSlackEvent:
     return NormalizedSlackEvent(
         event_id="Ev-policy",
+        run_id="00000000-0000-4000-8000-000000000003",
         team_id="T-policy",
         user_id=user,
         channel_id="C-policy",
@@ -215,6 +216,22 @@ def test_self_or_unallowlisted_approver_is_denied() -> None:
         run(approve_request(redis, pending.request_id, "U_REQUESTER"))
     with pytest.raises(PolicyDenied):
         run(approve_request(redis, pending.request_id, "U_INTRUDER"))
+
+
+def test_denied_approver_identity_is_not_written_to_audit(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    redis = PolicyRedis()
+    pending = request(redis)
+    caplog.set_level(logging.INFO, logger="chatops-bot.audit")
+
+    with pytest.raises(PolicyDenied):
+        run(approve_request(redis, pending.request_id, "U_INTRUDER"))
+
+    record = json.loads(caplog.records[-1].message)
+    assert record["decision"] == "denied"
+    assert record["approval"] == {"state": "unavailable"}
+    assert "U_INTRUDER" not in caplog.text
 
 
 def test_approval_replay_is_denied_before_any_executor_call() -> None:
@@ -277,6 +294,7 @@ def test_destructive_framework_requires_bound_one_time_confirmation() -> None:
     pending = ActionRequest(
         request_id="destructive-request-id-1234",
         event_id="event-opaque",
+        run_id="00000000-0000-4000-8000-000000000004",
         requester_user_id="U_REQUESTER",
         action="future_destructive",
         target="insighthub-prod/api",
@@ -327,6 +345,7 @@ def test_expired_destructive_confirmation_is_denied() -> None:
     pending = ActionRequest(
         request_id="expired-confirmation-id-1234",
         event_id="event-opaque",
+        run_id="00000000-0000-4000-8000-000000000005",
         requester_user_id="U_REQUESTER",
         action="future_destructive",
         target="insighthub-prod/api",
@@ -372,6 +391,7 @@ def test_default_catalog_denies_unregistered_destructive_action() -> None:
     pending = ActionRequest(
         request_id="unregistered-action-id-1234",
         event_id="event-opaque",
+        run_id="00000000-0000-4000-8000-000000000006",
         requester_user_id="U_REQUESTER",
         action="future_destructive",
         target="insighthub-prod/api",
@@ -396,6 +416,23 @@ def test_audit_does_not_leak_approval_or_confirmation_material(caplog: pytest.Lo
     assert {"approval_required", "allowed"} <= {record["decision"] for record in records}
     assert pending.request_id not in caplog.text
     assert "test-confirmation-hmac" not in caplog.text
+
+
+def test_unavailable_audit_sink_blocks_write_before_executor(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    redis = PolicyRedis()
+    pending = request(redis)
+    approve(redis, pending)
+    monkeypatch.setenv("CHATOPS_AUDIT_SINK", "file")
+    monkeypatch.setenv("CHATOPS_AUDIT_FILE", str(tmp_path / "missing" / "audit.jsonl"))
+    get_settings.cache_clear()
+    executor = CountingExecutor()
+
+    with pytest.raises(AuditUnavailable):
+        run(execute_approved_request(redis, pending.request_id, executor))
+
+    assert executor.calls == 0
 
 
 def test_writer_rbac_is_namespaced_scale_only() -> None:

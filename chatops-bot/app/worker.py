@@ -30,9 +30,12 @@ async def process_slack_event_job(ctx: dict[str, Any], payload: dict[str, Any]) 
     except EventValidationError:
         log_audit_event(
             event_id="invalid_event",
+            run_id="unknown",
             user="unknown",
             action="event_process",
+            tool="worker",
             decision="denied",
+            approval_state="denied",
             summary="invalid_event",
         )
         raise
@@ -57,9 +60,12 @@ async def process_slack_event_job(ctx: dict[str, Any], payload: dict[str, Any]) 
         if reply_state == "sent":
             log_audit_event(
                 event_id=event.identity,
+                run_id=event.run_id,
                 user=event.user_id,
                 action=result.action,
+                tool="worker",
                 decision="allowed",
+                approval_state="not_required",
                 summary="reply_already_sent",
             )
             return
@@ -83,26 +89,35 @@ async def process_slack_event_job(ctx: dict[str, Any], payload: dict[str, Any]) 
         if attempt < settings.worker_max_tries:
             log_audit_event(
                 event_id=event.identity,
+                run_id=event.run_id,
                 user=event.user_id,
                 action="event_process",
+                tool="worker",
                 decision="allowed",
+                approval_state="not_required",
                 summary="retry_scheduled",
             )
             raise Retry(defer=_retry_delay(attempt)) from None
         log_audit_event(
             event_id=event.identity,
+            run_id=event.run_id,
             user=event.user_id,
             action="event_process",
+            tool="worker",
             decision="denied",
+            approval_state="denied",
             summary="retry_exhausted",
         )
         raise error from None
     except (EventValidationError, PermanentProcessingError) as error:
         log_audit_event(
             event_id=event.identity,
+            run_id=event.run_id,
             user=event.user_id,
             action="event_process",
+            tool="worker",
             decision="denied",
+            approval_state="denied",
             summary=error.code,
         )
         raise error from None
@@ -110,17 +125,23 @@ async def process_slack_event_job(ctx: dict[str, Any], payload: dict[str, Any]) 
         if attempt < settings.worker_max_tries:
             log_audit_event(
                 event_id=event.identity,
+                run_id=event.run_id,
                 user=event.user_id,
                 action="event_process",
+                tool="worker",
                 decision="allowed",
+                approval_state="not_required",
                 summary="retry_scheduled",
             )
             raise Retry(defer=_retry_delay(attempt)) from None
         log_audit_event(
             event_id=event.identity,
+            run_id=event.run_id,
             user=event.user_id,
             action="event_process",
+            tool="worker",
             decision="denied",
+            approval_state="denied",
             summary="retry_exhausted",
         )
         raise TransientProcessingError() from error
@@ -129,17 +150,23 @@ async def process_slack_event_job(ctx: dict[str, Any], payload: dict[str, Any]) 
         # as a transient provider failure and could otherwise loop forever.
         log_audit_event(
             event_id=event.identity,
+            run_id=event.run_id,
             user=event.user_id,
             action="event_process",
+            tool="worker",
             decision="denied",
+            approval_state="denied",
             summary="unclassified_failure",
         )
         raise error
     log_audit_event(
         event_id=event.identity,
+        run_id=event.run_id,
         user=event.user_id,
         action=result.action,
+        tool="worker",
         decision="allowed",
+        approval_state="not_required",
         summary="reply_sent",
     )
 
@@ -156,9 +183,12 @@ async def process_approved_action_job(ctx: dict[str, Any], request_id: str) -> N
         # Returning prevents ARQ's generic retry mechanism from repeating a write.
         log_audit_event(
             event_id=request_id,
+            run_id="unknown",
             user="unknown",
             action="approved_action_process",
+            tool="worker",
             decision="denied",
+            approval_state="denied",
             summary=error.code if isinstance(error, ChatopsError) else "unclassified_failure",
         )
         return

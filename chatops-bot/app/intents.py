@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from collections.abc import Mapping
 from typing import Awaitable, Callable, TypeVar
 
-from app.audit import log_audit_event
+from app.audit import ensure_audit_sink_available, log_audit_event
 from app.errors import McpSchemaError, McpUnavailable, PermanentProcessingError, TransientProcessingError
 from app.events import NormalizedSlackEvent
 from app.mcp_client import (
@@ -62,7 +62,11 @@ def _intent_name(text: str) -> str:
 async def _health(event: NormalizedSlackEvent) -> IntentResult:
     client = get_readonly_mcp_client()
     live, ready, database_ready = await _call(
-        event, "mcp.insighthub_health", client.health(), validate_health
+        event,
+        "insighthub_health",
+        "mcp.insighthub_health",
+        client.health(),
+        validate_health,
     )
     requests, errors = await asyncio.gather(
         _prometheus_context(event, client.prometheus_requests_5m(), REQUESTS_5M),
@@ -83,6 +87,7 @@ async def _health(event: NormalizedSlackEvent) -> IntentResult:
 async def _documents_today(event: NormalizedSlackEvent) -> IntentResult:
     date, count = await _call(
         event,
+        "insighthub_documents_today",
         "mcp.insighthub_ingest_count_today_utc",
         get_readonly_mcp_client().ingest_count_today_utc(),
         validate_ingest_count,
@@ -101,6 +106,7 @@ async def _failed_pods(event: NormalizedSlackEvent) -> IntentResult:
     try:
         pods = await _call(
             event,
+            "kubernetes_failed_pods",
             "mcp.kubernetes.get_pods",
             get_readonly_mcp_client().pods(),
             lambda result: summarize_abnormal_pods(
@@ -129,37 +135,48 @@ async def _failed_pods(event: NormalizedSlackEvent) -> IntentResult:
 async def _call(
     event: NormalizedSlackEvent,
     action: str,
+    tool: str,
     operation: Awaitable[Mapping[str, object]],
     validator: Callable[[Mapping[str, object]], Validated],
 ) -> Validated:
     """Audit one fixed capability call without retaining inputs or provider output."""
 
+    ensure_audit_sink_available()
     try:
         result = validator(await operation)
     except McpUnavailable:
         log_audit_event(
             event_id=event.identity,
+            run_id=event.run_id,
             user=event.user_id,
             action=action,
+            tool=tool,
             decision="denied",
-            summary="unavailable",
+            approval_state="not_required",
+            summary="mcp_unavailable",
         )
         raise
     except McpSchemaError:
         log_audit_event(
             event_id=event.identity,
+            run_id=event.run_id,
             user=event.user_id,
             action=action,
+            tool=tool,
             decision="denied",
-            summary="schema_invalid",
+            approval_state="not_required",
+            summary="mcp_schema_error",
         )
         raise
     log_audit_event(
         event_id=event.identity,
+        run_id=event.run_id,
         user=event.user_id,
         action=action,
+        tool=tool,
         decision="allowed",
-        summary="success",
+        approval_state="not_required",
+        summary="mcp_success",
     )
     return result
 
@@ -172,7 +189,8 @@ async def _prometheus_context(
     try:
         return await _call(
             event,
-            f"mcp.prometheus.{query}",
+            "insighthub_health",
+            "mcp.prometheus_summary",
             operation,
             lambda result: validate_metric(result, query),
         )

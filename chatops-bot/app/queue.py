@@ -74,9 +74,12 @@ async def enqueue_authenticated_event(event: NormalizedSlackEvent) -> EnqueueRes
     if not claimed:
         log_audit_event(
             event_id=event.identity,
+            run_id=event.run_id,
             user=event.user_id,
             action="event_enqueue",
+            tool="queue",
             decision="denied",
+            approval_state="not_required",
             summary="duplicate",
         )
         return EnqueueResult(accepted=False)
@@ -109,9 +112,12 @@ async def enqueue_authenticated_event(event: NormalizedSlackEvent) -> EnqueueRes
         pass
     log_audit_event(
         event_id=event.identity,
+        run_id=event.run_id,
         user=event.user_id,
         action="event_enqueue",
+        tool="queue",
         decision="allowed",
+        approval_state="not_required",
         summary="queued",
     )
     return EnqueueResult(accepted=True)
@@ -143,9 +149,12 @@ def _log_enqueue_failure(event: NormalizedSlackEvent) -> None:
 
     log_audit_event(
         event_id=event.identity,
+        run_id=event.run_id,
         user=event.user_id,
         action="event_enqueue",
+        tool="queue",
         decision="denied",
+        approval_state="unavailable",
         summary="queue_unavailable",
     )
 

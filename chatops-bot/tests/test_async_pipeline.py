@@ -90,6 +90,7 @@ def configured_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
 def sample_event() -> NormalizedSlackEvent:
     return NormalizedSlackEvent(
         event_id="Ev-1",
+        run_id="00000000-0000-4000-8000-000000000001",
         team_id="T-1",
         user_id="U-1",
         channel_id="C-1",
@@ -158,7 +159,7 @@ def test_enqueue_failure_releases_only_its_claim_and_is_audited(
     record = json.loads(caplog.records[-1].message)
     assert record["action"] == "event_enqueue"
     assert record["decision"] == "denied"
-    assert record["result_summary"] == "queue_unavailable"
+    assert record["summary"] == "queue_unavailable"
 
 
 def test_transient_processing_retries_with_exponential_backoff(
@@ -272,13 +273,16 @@ def test_audit_contains_required_sanitized_fields(caplog: pytest.LogCaptureFixtu
     caplog.set_level(logging.INFO, logger="chatops-bot.audit")
     log_audit_event(
         event_id=sample_event().identity,
+        run_id=sample_event().run_id,
         user="U-1",
         action="event_enqueue",
+        tool="queue",
         decision="allowed",
+        approval_state="not_required",
         summary="queued",
     )
 
     record = json.loads(caplog.records[-1].message)
-    assert {"timestamp", "event_id", "run_id", "user", "action", "decision", "result_summary"} <= set(record)
+    assert {"timestamp", "event_id", "run_id", "user", "action", "tool", "decision", "approval", "summary"} <= set(record)
     assert record["event_id"] == sample_event().identity
     assert "test-token" not in caplog.text

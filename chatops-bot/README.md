@@ -68,6 +68,13 @@ following values from deployment configuration/Secrets (never commit values):
   `CHATOPS_KUBERNETES_MAX_PODS` (1–20), and
   `CHATOPS_KUBERNETES_RESTART_THRESHOLD` (1–100).
 
+Audit output defaults to `stdout`. Set `CHATOPS_AUDIT_SINK=file` together with
+`CHATOPS_AUDIT_FILE` to use an operator-selected JSONL file. The sink is checked
+before every MCP call and mutation dispatch: a failed check prevents the call.
+Records contain only correlation IDs, allowlisted action/tool/summary codes and
+safe approval metadata; raw Slack, MCP, document and credential data are never
+written.
+
 The only worker capabilities are `insighthub_health`,
 `prometheus_summary` with `requests_5m`/`errors_5m`,
 `insighthub_ingest_count_today_utc`, and Kubernetes `get_pods` scoped to the

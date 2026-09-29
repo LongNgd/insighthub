@@ -3,7 +3,7 @@
 from dataclasses import asdict, dataclass
 import hashlib
 from typing import Any
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from app.errors import EventValidationError
 
@@ -13,6 +13,7 @@ class NormalizedSlackEvent:
     """The minimal event shape needed by the worker; never log this object."""
 
     event_id: str
+    run_id: str
     team_id: str
     user_id: str
     channel_id: str
@@ -50,6 +51,11 @@ class NormalizedSlackEvent:
             raise EventValidationError() from error
         if not all(isinstance(value, str) for value in fields.values()):
             raise EventValidationError()
+        try:
+            if str(UUID(fields["run_id"])) != fields["run_id"]:
+                raise ValueError()
+        except ValueError as error:
+            raise EventValidationError() from error
         return cls(**fields)
 
 
@@ -78,6 +84,7 @@ def normalize_authenticated_event(payload: dict[str, Any]) -> NormalizedSlackEve
         raise EventValidationError()
     return NormalizedSlackEvent(
         event_id=event_id.strip(),
+        run_id=str(uuid4()),
         team_id=team_id.strip(),
         user_id=required_event_string("user"),
         channel_id=required_event_string("channel"),

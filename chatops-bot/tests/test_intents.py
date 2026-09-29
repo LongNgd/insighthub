@@ -23,6 +23,7 @@ def run(coroutine: Any) -> Any:
 def event(text: str) -> NormalizedSlackEvent:
     return NormalizedSlackEvent(
         event_id="Ev-intent",
+        run_id="00000000-0000-4000-8000-000000000002",
         team_id="T-intent",
         user_id="U-intent",
         channel_id="C-intent",
@@ -209,9 +210,27 @@ def test_mcp_audit_does_not_contain_provider_content(
     with pytest.raises(McpUnavailable):
         run(intents.route_authenticated_event(event("health")))
     record = json.loads(caplog.records[-1].message)
-    assert record["action"] == "mcp.insighthub_health"
-    assert record["result_summary"] == "unavailable"
+    assert record["action"] == "insighthub_health"
+    assert record["tool"] == "mcp.insighthub_health"
+    assert record["summary"] == "mcp_unavailable"
     assert secret not in caplog.text
+
+
+def test_each_health_mcp_call_has_one_correlated_audit_record(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    fake = FakeMcp()
+    monkeypatch.setattr(intents, "get_readonly_mcp_client", lambda: fake)
+    caplog.set_level(logging.INFO, logger="chatops-bot.audit")
+
+    run(intents.route_authenticated_event(event("health")))
+
+    records = [json.loads(item.message) for item in caplog.records]
+    tool_records = [item for item in records if item["tool"].startswith("mcp.")]
+    assert [item["tool"] for item in tool_records].count("mcp.insighthub_health") == 1
+    assert [item["tool"] for item in tool_records].count("mcp.prometheus_summary") == 2
+    assert {item["event_id"] for item in tool_records} == {event("health").identity}
+    assert {item["run_id"] for item in tool_records} == {event("health").run_id}
 
 
 def test_http_mcp_client_uses_fixed_tool_and_operator_namespace() -> None:

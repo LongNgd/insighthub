@@ -404,3 +404,104 @@ Mọi quyết định phải được thực thi ở server/worker policy layer 
 - Timeout/network ambiguity của write tạo `reconciliation_required` sanitized audit state và không được ARQ retry side effect. Audit giữ UTC timestamp, event/run ID, requester/approver, action, target, decision, expiry/consumed state và summary đã sanitize; không giữ raw Slack payload, token, secret hay provider error.
 - Đã thêm tests cho allowlist/deny, approval requirement, approver/self-approval, binding mismatch, expiry/replay/concurrent consume, destructive confirmation, executor precondition, unknown outcome, RBAC và audit sanitization. `pytest chatops-bot/tests/` đã PASS: **58 passed in 8.25s**; `git diff --check` PASS.
 - Rủi ro còn lại: unit/transport doubles không phải evidence Slack LIVE, Redis runtime hoặc Kubernetes authorization runtime. Writer vẫn disabled cho tới khi operator cấu hình Secret/environment và áp dụng manifest qua quy trình được duyệt.
+
+## Prompt 5 - ChatOps structured audit layer
+
+**Host**: ChatGPT-Codex
+
+**Model**: Codex (GPT-5)
+
+**Ngày ghi log**: 29/09/2026 (+07:00)
+
+**Context / Evidence**: [AGENTS.md](../AGENTS.md), [Day 5 specification](../Running-Project-Specification-Student.md), [verification contract](../scripts/VERIFICATION_CONTRACT.md), [audit module](../chatops-bot/app/audit.py), [queue adapter](../chatops-bot/app/queue.py), [worker](../chatops-bot/app/worker.py), [intent router](../chatops-bot/app/intents.py), [policy engine](../chatops-bot/app/policy.py), [ChatOps tests](../chatops-bot/tests/).
+
+**Prompt gốc**:
+
+```text
+## 1. Mục tiêu (Goal)
+
+Hoàn thiện audit layer cho `chatops-bot/` để ghi structured JSON cho **mỗi tool call** và mọi quyết định permission liên quan.
+
+Mỗi record phải có UTC timestamp, event/run ID, user, action/tool, decision, approval state và sanitized summary; tuyệt đối không lưu raw Slack event, RAG/document content, token, signature, secret, kubeconfig hoặc provider/MCP error thô.
+
+## 2. Ràng buộc (Constraints - PHẢI TUÂN THỦ)
+
+- Chỉ sửa trong phạm vi `chatops-bot/**` và tests liên quan; không sửa database schema, web, API InsightHub, MCP backend hoặc Day 1–4.
+- Audit phải được gọi ở server/worker/tool-execution boundary, không phụ thuộc LLM tự khai báo tool call.
+- Ghi JSON structured, mỗi record một event hợp lệ; dùng UTC timezone-aware RFC3339 timestamp.
+- Field tối thiểu cho mỗi record:
+  - `timestamp`
+  - `event_id`
+  - `run_id`
+  - `user`
+  - `action`
+  - `tool`
+  - `decision` (`allowed`, `denied`, hoặc `approval_required`)
+  - `approval`
+  - `summary`
+- `approval` chỉ được ghi metadata an toàn như state, approver ID đã được policy cho phép, issued/expiry/consumed state nếu cần. Không ghi approval token, confirmation token, signing secret hoặc raw Slack interactive payload.
+- `summary` phải là projection/allowlist có giới hạn kích thước; không dùng `str(exception)`, `repr(exception)`, raw response body, raw prompt, document text, filename riêng tư, pod object đầy đủ hay provider error body.
+- Không log raw Slack body, headers, signature, timestamp header, bot token, API key, Redis URL chứa credential, kubeconfig hoặc URL có credential.
+- Sanitization phải default-deny: field chưa được cho phép phải bị loại bỏ hoặc thay bằng mã lỗi an toàn.
+- Mọi audit event phải giữ correlation xuyên suốt HTTP authenticated event → enqueue → worker → MCP/tool call → policy decision → reply/failure.
+- Audit failure không được làm lộ dữ liệu nhạy cảm. Thiết kế fail-safe: nếu audit sink không khả dụng, xử lý privileged/write/destructive phải không được tiếp tục; với read-only, trả lỗi controlled hoặc xử lý theo policy được nêu rõ.
+- Ghi ra stdout/file sink cấu hình qua env; không hardcode đường dẫn, credential, retention hoặc endpoint log aggregator.
+- Không dùng audit log làm nguồn authorization. Audit là bằng chứng, policy engine/RBAC vẫn là enforcement.
+- Dùng type hints đầy đủ, controlled errors, snake_case và dependency pinned.
+- Không sửa/xóa/skip/xfail test hiện có hoặc giảm assertion để làm test xanh.
+
+## 3. Tiêu chí thành công (Acceptance Criteria)
+
+- Mỗi tool call tạo đúng một audit record structured JSON có đầy đủ field bắt buộc.
+- Các luồng `allowed`, `denied` và `approval_required` đều có audit record.
+- Timestamp là UTC RFC3339; event/run ID được correlation đúng giữa queue worker và tool call.
+- Audit summary có giới hạn kích thước và không chứa raw Slack payload, token, signature, secret, RAG/document text, provider/MCP exception hoặc URL credential.
+- Error từ tool/provider được chuyển thành code/summary đã sanitize, không dùng exception raw.
+- Unit test chứng minh sanitizer loại bỏ:
+  - Slack body/header/signature;
+  - token/secret/API key;
+  - document/RAG text và filename nhạy cảm;
+  - raw MCP/Kubernetes/provider response;
+  - exception text có canary secret.
+- Audit sink failure chặn write/destructive execution trước tool call và có behavior rõ ràng cho read-only.
+- Tests tạo fresh audit observations phù hợp `scripts/VERIFICATION_CONTRACT.md`, gồm `run_id`, `events`, `event_id`, `timestamp`, `action`, `decision`, `user`, `test_run_id`.
+- `pytest chatops-bot/tests/` và `git diff --check` PASS.
+
+## 4. Ví dụ pattern tham chiếu (Reference)
+
+- `chatops-bot/app/audit.py`: scaffold cần hoàn thiện, nhưng không giữ mẫu log `args`/`result` tự do nếu các field đó có thể chứa dữ liệu nhạy cảm.
+- `scripts/VERIFICATION_CONTRACT.md`: audit Day 5 cần `run_id`, fresh test observations và các decision `denied`/`approval_required`.
+- `Running-Project-Specification-Student.md` mục 9 và `AGENTS.md`: audit JSON phải có timestamp UTC, event/run ID, user, action/tool, decision/approval và sanitized summary.
+- `tools/mcp/src/core.mjs`: tham khảo projection/allowlist và không phản chiếu lỗi upstream hoặc input không tin cậy.
+
+## 5. Quy trình thực hiện (Process / Output Expected)
+
+- Trình bày KẾ HOẠCH (PLAN) trước, gồm:
+  1. file dự kiến sửa/thêm;
+  2. audit event schema;
+  3. correlation ID flow;
+  4. sanitizer/projection allowlist;
+  5. sink failure policy cho read-only và privileged actions;
+  6. test matrix.
+- ĐỢI TÔI DUYỆT PLAN rồi mới sửa file.
+- Đọc toàn bộ Slack adapter, queue/worker, permission engine và test hiện có trước khi sửa để đặt audit tại đúng boundary.
+- Sau khi sửa, chạy `pytest chatops-bot/tests/` và `git diff --check`.
+- Báo cáo: file đã đổi, schema audit cuối cùng, sink/config env cần thiết (chỉ tên biến), kết quả test, và một audit record mẫu đã sanitize.
+- Không gửi log sang Loki/CloudWatch, không tạo Secret, không gửi Slack message thật và không thực hiện cloud/Kubernetes mutation nếu chưa có quyền riêng.
+```
+
+**Vì sao prompt hiệu quả**:
+
+- Chỉ định đầy đủ schema, correlation và ba decision bắt buộc, nên audit verifier và review vận hành có cùng contract kiểm tra được.
+- Default-deny projection cùng danh sách dữ liệu cấm log biến yêu cầu privacy/security thành các canary test cụ thể, thay vì tin vào logging convention.
+- Đặt audit tại HTTP, worker và tool boundary; đồng thời yêu cầu preflight sink cho write/destructive, nên audit không dựa vào LLM hay trở thành đường bypass policy.
+- Phân biệt sink runtime với verification observations, giúp test tạo bằng chứng fresh mà không biến log audit thành nguồn authorization hay evidence Slack LIVE.
+
+**Quyết định / Review**:
+
+- Người dùng đã duyệt plan trước khi thay đổi source. Phạm vi thực hiện giữ trong `chatops-bot/**`, tests ChatOps và prompt log Day 5; không sửa database schema, web, API InsightHub, MCP backend hoặc Day 1–4.
+- Chấp nhận audit record default-deny gồm `timestamp` UTC RFC3339, `event_id`, `run_id`, `user`, `action`, `tool`, `decision`, `approval`, `summary` và `test_run_id`. Action/tool/summary/approval state dùng allowlist; request body, args, results, target, token, secret, raw upstream data và exception text không được ghi.
+- Correlation `run_id` được tạo sau Slack authentication, giữ qua normalized queue payload, worker, MCP call, policy decision và executor. `INSIGHTHUB_VERIFY_RUN_ID` chỉ hiện ở `test_run_id`; `INSIGHTHUB_VERIFY_OBSERVATIONS` tạo envelope fresh `{run_id, events}` cho verifier.
+- Chấp nhận `CHATOPS_AUDIT_SINK` (`stdout` hoặc `file`) và `CHATOPS_AUDIT_FILE` khi dùng file sink. Sink được kiểm tra trước MCP/read-only call và write/destructive executor dispatch; sink unavailable trả controlled error và không gọi tool. Policy/RBAC/executor vẫn là enforcement độc lập với audit.
+- Đã thêm/điều chỉnh tests cho schema UTC, canary Slack/header/signature/token/API key/kubeconfig/document/RAG/MCP/Kubernetes/provider/exception, từng MCP tool call, correlation, allowed/denied/approval_required, approval identity, sink failure read-only/write và verifier observations. `pytest chatops-bot/tests/` đã PASS: **64 passed**; fresh verifier observation có **94 events** gồm đủ ba decision; `git diff --check` PASS.
+- Rủi ro còn lại: unit/transport doubles và verifier observation không thay thế Slack LIVE, delivery tới log aggregator, Redis runtime hoặc Kubernetes authorization runtime. Không gửi Slack message thật, không tạo Secret và không mutation cloud/Kubernetes.
