@@ -1,3 +1,5 @@
-# Minimal fail-closed Day5 skeleton; add Slack SDK only for chosen transport.
+# Fail-closed Day 5 Slack HTTP transport plus durable ARQ worker.
 fastapi==0.141.1
 uvicorn[standard]==0.52.4
+arq==0.26.3
+httpx==0.28.1

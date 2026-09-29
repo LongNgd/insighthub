@@ -1,5 +1,6 @@
 """Fail-closed Slack HTTP event adapter for the Day 5 ChatOps bot."""
 
+import asyncio
 import json
 from typing import Any
 
@@ -7,6 +8,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 
 from app.config import get_settings
+from app.errors import EventValidationError, QueueUnavailable
+from app.events import normalize_authenticated_event
+from app.queue import enqueue_authenticated_event
 from app.slack_auth import SlackAuthenticationError, verify_slack_request
 
 
@@ -63,17 +67,20 @@ async def slack_events(request: Request) -> Response:
     if "bot_id" in event or event.get("user") == settings.slack_bot_user_id:
         return JSONResponse({"ok": True})
 
-    await prepare_authenticated_event(payload)
+    try:
+        await asyncio.wait_for(
+            prepare_authenticated_event(payload),
+            timeout=settings.queue_timeout_seconds,
+        )
+    except EventValidationError as error:
+        raise HTTPException(status_code=400, detail="Invalid Slack event payload.") from error
+    except (QueueUnavailable, TimeoutError) as error:
+        raise HTTPException(status_code=503, detail="Slack event queue is unavailable.") from error
     return JSONResponse({"ok": True})
 
 
 async def prepare_authenticated_event(payload: dict[str, Any]) -> None:
-    """Integration seam for the later durable queue; it never invokes tools inline."""
+    """Normalize and durably enqueue an authenticated event without processing it."""
 
-    _ = payload
-
-
-async def handle_question(question: str) -> str:
-    # Day 5: transport -> deduplicated queue -> bounded read-only tool -> audit.
-    # Mutation requires a separate identity and approval bound to exact action.
-    raise NotImplementedError("Day 5 learner implementation")
+    event = normalize_authenticated_event(payload)
+    await enqueue_authenticated_event(event)

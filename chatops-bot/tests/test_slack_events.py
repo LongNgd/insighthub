@@ -25,6 +25,7 @@ BOT_USER_ID = "U_BOT"
 def configured_adapter(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SLACK_SIGNING_SECRET", SIGNING_SECRET)
     monkeypatch.setenv("SLACK_BOT_USER_ID", BOT_USER_ID)
+    monkeypatch.setenv("CHATOPS_REDIS_URL", "redis://test.invalid:6379/0")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -94,6 +95,39 @@ def test_valid_user_event_is_acknowledged_and_prepared(monkeypatch: pytest.Monke
     assert captured == [json.loads(body)]
 
 
+def test_authenticated_event_acknowledges_after_enqueue_without_inline_processing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_identity: list[str] = []
+
+    async def enqueue(event: Any) -> None:
+        captured_identity.append(event.identity)
+
+    monkeypatch.setattr(main, "enqueue_authenticated_event", enqueue)
+    body = json.dumps(
+        {
+            "type": "event_callback",
+            "event_id": "Ev-queued",
+            "team_id": "T_TEAM",
+            "event": {
+                "type": "app_mention",
+                "user": "U_USER",
+                "channel": "C_CHANNEL",
+                "ts": "123.456",
+                "text": "health",
+            },
+        },
+        separators=(",", ":"),
+    ).encode()
+    started = time.monotonic()
+
+    response = call_events(body, signed_headers(body))
+
+    assert response.body == b'{"ok":true}'
+    assert time.monotonic() - started < 3
+    assert len(captured_identity) == 1
+
+
 @pytest.mark.parametrize("headers", [{}, {"x-slack-request-timestamp": "123", "x-slack-signature": "v0=wrong"}])
 def test_missing_or_invalid_signature_is_rejected_before_parse(headers: dict[str, str]) -> None:
     body = b"not-json-and-must-not-be-parsed"
@@ -107,7 +141,9 @@ def test_missing_or_invalid_signature_is_rejected_before_parse(headers: dict[str
 
 @pytest.mark.parametrize(
     "timestamp",
-    [int(time.time()) - 301, int(time.time()) + 301],
+    # Keep the assertion outside the 300-second boundary even when the full
+    # suite spends time collecting and running earlier security cases.
+    [int(time.time()) - 601, int(time.time()) + 601],
 )
 def test_expired_or_future_timestamp_is_rejected(timestamp: int) -> None:
     body = event_body({"type": "app_mention", "user": "U_USER"})
@@ -184,6 +220,68 @@ def test_healthz_reflects_configured_adapter(monkeypatch: pytest.MonkeyPatch) ->
     get_settings.cache_clear()
 
     assert main.health() == {"status": "not_ready", "ready": False, "transport": "slack_http"}
+
+
+def test_queue_unavailable_is_not_acknowledged(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def unavailable(payload: dict[str, Any]) -> None:
+        _ = payload
+        from app.errors import QueueUnavailable
+
+        raise QueueUnavailable()
+
+    monkeypatch.setattr(main, "prepare_authenticated_event", unavailable)
+    body = json.dumps(
+        {
+            "type": "event_callback",
+            "event_id": "Ev-unavailable",
+            "team_id": "T_TEAM",
+            "event": {
+                "type": "app_mention",
+                "user": "U_USER",
+                "channel": "C_CHANNEL",
+                "ts": "123.456",
+                "text": "health",
+            },
+        },
+        separators=(",", ":"),
+    ).encode()
+
+    with pytest.raises(HTTPException) as raised:
+        call_events(body, signed_headers(body))
+
+    assert raised.value.status_code == 503
+    assert raised.value.detail == "Slack event queue is unavailable."
+
+
+def test_queue_timeout_is_not_acknowledged(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CHATOPS_QUEUE_TIMEOUT_SECONDS", "0.1")
+    get_settings.cache_clear()
+
+    async def blocked(payload: dict[str, Any]) -> None:
+        _ = payload
+        await asyncio.sleep(0.2)
+
+    monkeypatch.setattr(main, "prepare_authenticated_event", blocked)
+    body = json.dumps(
+        {
+            "type": "event_callback",
+            "event_id": "Ev-timeout",
+            "team_id": "T_TEAM",
+            "event": {
+                "type": "app_mention",
+                "user": "U_USER",
+                "channel": "C_CHANNEL",
+                "ts": "123.456",
+                "text": "health",
+            },
+        },
+        separators=(",", ":"),
+    ).encode()
+
+    with pytest.raises(HTTPException) as raised:
+        call_events(body, signed_headers(body))
+
+    assert raised.value.status_code == 503
 
 
 def test_logs_do_not_contain_slack_body_or_secret(caplog: pytest.LogCaptureFixture) -> None:

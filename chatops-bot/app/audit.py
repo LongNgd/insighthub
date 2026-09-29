@@ -29,16 +29,38 @@ def log_tool_call(
     A future log sink may forward these already-sanitized records to an
     aggregator. Callers must not use this function for raw Slack payloads.
     """
+    log_audit_event(
+        event_id=str(uuid4()),
+        user=user,
+        action=tool,
+        decision="allowed" if approved else "denied",
+        summary="present" if result_summary else "empty",
+        argument_keys=_safe_argument_keys(args),
+    )
+
+
+def log_audit_event(
+    *,
+    event_id: str,
+    user: str,
+    action: str,
+    decision: str,
+    summary: str,
+    argument_keys: list[str] | None = None,
+) -> None:
+    """Emit the mandatory correlation fields without raw event or tool content."""
+
+    run_id = os.getenv("INSIGHTHUB_VERIFY_RUN_ID", "")
     record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "event_id": str(uuid4()),
-        "run_id": os.getenv("INSIGHTHUB_VERIFY_RUN_ID", ""),
+        "event_id": event_id,
+        "run_id": run_id,
+        "test_run_id": run_id,
         "user": user,
-        "action": tool,
-        "decision": "allowed" if approved else "denied",
-        "argument_keys": _safe_argument_keys(args),
-        "result_summary": "present" if result_summary else "empty",
-        "approved": approved,
+        "action": action,
+        "decision": decision,
+        "argument_keys": argument_keys or [],
+        "result_summary": summary,
     }
     logger.info(json.dumps(record, ensure_ascii=False, sort_keys=True))
 
