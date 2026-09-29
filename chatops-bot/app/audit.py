@@ -1,14 +1,16 @@
 """
-InsightHub ChatOps Bot — Audit log (SKELETON)
+InsightHub ChatOps Bot — sanitized audit log.
 
 Mọi tool call của bot PHẢI được ghi audit. Đây là yêu cầu bảo mật cốt lõi:
 khi AI agent có quyền chạm vào hạ tầng, phải có dấu vết kiểm toán.
 
-TODO Day 5: hoàn thiện theo gợi ý dưới.
 """
 import json
 import logging
+import os
+from collections.abc import Mapping
 from datetime import datetime, timezone
+from uuid import uuid4
 
 logger = logging.getLogger("chatops-bot.audit")
 
@@ -16,29 +18,39 @@ logger = logging.getLogger("chatops-bot.audit")
 def log_tool_call(
     user: str,
     tool: str,
-    args: dict,
+    args: Mapping[str, object],
     result_summary: str,
     approved: bool = True,
 ) -> None:
     """
     Ghi 1 dòng audit cho mỗi tool call.
 
-    TODO Day 5:
-    - Ghi ra file hoặc stdout dạng structured JSON (mỗi dòng 1 record).
-    - Trong production thật: đẩy sang log aggregator (Loki...).
-    - Trường tối thiểu: timestamp, user, tool, args, kết quả, approved.
-
-    Ví dụ record:
-      {"ts": "...", "user": "U123", "tool": "kubectl_get_pods",
-       "args": {...}, "result": "5 pods Running", "approved": true}
+    Emit one structured JSON record without argument values or result content.
+    A future log sink may forward these already-sanitized records to an
+    aggregator. Callers must not use this function for raw Slack payloads.
     """
     record = {
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "event_id": str(uuid4()),
+        "run_id": os.getenv("INSIGHTHUB_VERIFY_RUN_ID", ""),
         "user": user,
-        "tool": tool,
-        "args": args,
-        "result": result_summary,
+        "action": tool,
+        "decision": "allowed" if approved else "denied",
+        "argument_keys": _safe_argument_keys(args),
+        "result_summary": "present" if result_summary else "empty",
         "approved": approved,
     }
-    # TODO: thay bằng ghi file / gửi log aggregator
-    logger.info("AUDIT %s", json.dumps(record, ensure_ascii=False))
+    logger.info(json.dumps(record, ensure_ascii=False, sort_keys=True))
+
+
+def _safe_argument_keys(args: Mapping[str, object]) -> list[str]:
+    """Retain audit shape while dropping values that could contain private data."""
+
+    sensitive_markers = ("secret", "token", "signature", "password", "body", "payload")
+    safe_keys: list[str] = []
+    for key in sorted(str(item) for item in args):
+        if any(marker in key.lower() for marker in sensitive_markers):
+            safe_keys.append("[redacted]")
+        else:
+            safe_keys.append(key)
+    return safe_keys
