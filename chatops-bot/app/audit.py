@@ -47,6 +47,10 @@ def log_audit_event(
     decision: str,
     summary: str,
     argument_keys: list[str] | None = None,
+    approver_user_id: str | None = None,
+    target: str | None = None,
+    approval_state: str | None = None,
+    expires_at: int | None = None,
 ) -> None:
     """Emit the mandatory correlation fields without raw event or tool content."""
 
@@ -61,6 +65,10 @@ def log_audit_event(
         "decision": decision,
         "argument_keys": argument_keys or [],
         "result_summary": summary,
+        "approver_user_id": approver_user_id,
+        "target": target,
+        "approval_state": approval_state,
+        "expires_at": expires_at,
     }
     logger.info(json.dumps(record, ensure_ascii=False, sort_keys=True))
 

@@ -23,6 +23,32 @@ Optional bounded-operation settings are `CHATOPS_QUEUE_TIMEOUT_SECONDS`,
 `CHATOPS_REPLY_TTL_SECONDS`, `CHATOPS_INTENT_TIMEOUT_SECONDS`,
 `CHATOPS_MCP_TIMEOUT_SECONDS`, and `CHATOPS_SLACK_REPLY_TIMEOUT_SECONDS`.
 
+## Permission enforcement
+
+The worker owns a fixed action catalog. The three existing diagnostics are the
+only automatically executable capabilities. A Slack request in the exact form
+`scale <deployment> to <replicas>` can only create an approval request when the
+deployment appears in `CHATOPS_SCALE_DEPLOYMENT_ALLOWLIST`; it never selects a
+namespace, tool, URL, or Kubernetes verb. A separately signed Slack interaction
+from an identity in `CHATOPS_APPROVER_USER_IDS` may approve it, provided that it
+is not the requester. Redis persists and atomically consumes the bound approval
+record before the sole write executor can run.
+
+The optional writer is disabled by default. Operators must explicitly set
+`CHATOPS_WRITE_ENABLED=1`, `CHATOPS_WRITE_KUBERNETES_API_URL`, and
+`CHATOPS_WRITE_KUBERNETES_BEARER_TOKEN` from deployment configuration or a
+Kubernetes Secret. Its identity is represented by
+`../kubernetes/chatops/chatops-scale-writer.yaml`, which grants only
+`patch`/`update` on `apps/deployments/scale` in `insighthub-prod`. It is not the
+`mcp-readonly` identity and has no delete permission.
+
+Approval records use `CHATOPS_APPROVAL_TTL_SECONDS` (default 900 seconds).
+The destructive-action framework is default-deny because no destructive action
+is registered. A future operator-approved destructive capability must also set
+`CHATOPS_CONFIRMATION_HMAC_KEY` and use an opaque confirmation token with
+`CHATOPS_CONFIRMATION_TTL_SECONDS` (default 60 seconds); neither token material
+nor secret values are written to audit logs.
+
 ## Read-only MCP runtime
 
 The worker has a separate JSON-RPC MCP transport; it does not read the Codex

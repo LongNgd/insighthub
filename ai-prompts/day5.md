@@ -280,3 +280,127 @@ Bổ sung capability read-only cố định `insighthub_ingest_count_today_utc` 
 - Bot dùng MCP JSON-RPC transport riêng qua env/Secret, không đọc `.codex/config.toml` hoặc thừa kế kubeconfig. K8s chỉ gọi `get_pods` với namespace operator-owned; response projection giới hạn pod và chỉ giữ phase/restart/reason an toàn.
 - Đã thêm tests cho health healthy/degraded/Prometheus unavailable, UTC boundary, allowlist/input, pod healthy/failing/malformed/oversized/timeout, namespace injection, mutation denial và audit sanitization. `make test-backend` (62 tests), `pytest chatops-bot/tests/` (40 tests), `make test-mcp` (23 tests cùng fixture smoke) và `git diff --check` đều PASS tại thời điểm review.
 - Rủi ro còn lại: test transport/fixture không phải Slack LIVE hoặc attestation Kubernetes/Prometheus production. Không gửi Slack message thật, không tạo Secret, không mở ngrok/Ingress và không mutation Kubernetes/cloud.
+
+## Prompt 4 - ChatOps permission enforcement outside LLM
+
+**Host**: ChatGPT-Codex
+
+**Model**: Codex (GPT-5)
+
+**Ngày ghi log**: 29/09/2026 (+07:00)
+
+**Context / Evidence**: [AGENTS.md](../AGENTS.md), [Day 5 specification](../Running-Project-Specification-Student.md), [verification contract](../scripts/VERIFICATION_CONTRACT.md), [policy engine](../chatops-bot/app/policy.py), [write executor](../chatops-bot/app/action_executor.py), [worker](../chatops-bot/app/worker.py), [audit module](../chatops-bot/app/audit.py), [policy tests](../chatops-bot/tests/test_policy.py), [writer RBAC](../kubernetes/chatops/chatops-scale-writer.yaml).
+
+**Prompt gốc**:
+
+```text
+## 1. Mục tiêu (Goal)
+
+Triển khai permission enforcement ngoài LLM cho `chatops-bot/` với ba tier:
+
+1. **Read-only**: tự động cho phép chỉ với capability/tool allowlist và RBAC read-only.
+2. **Write/scale**: chỉ thực thi sau approval từ identity riêng, approval phải bind chính xác với requester, action, target, arguments và expiry.
+3. **Destructive**: yêu cầu approval hợp lệ và confirmation token one-time hết hạn, bind chính xác với requester + action + target + arguments.
+
+Mọi quyết định phải được thực thi ở server/worker policy layer trước tool execution, không dựa vào prompt/LLM/Slack text để cấp quyền.
+
+## 2. Ràng buộc (Constraints - PHẢI TUÂN THỦ)
+
+- Chỉ sửa trong phạm vi `chatops-bot/**`, tests liên quan và, nếu cần, thêm manifest RBAC/ServiceAccount riêng dưới `kubernetes/`. Không sửa database schema, web, ingestion pipeline, MCP read-only hiện có hoặc Day 1–4 behavior.
+- Không tin tưởng input từ LLM, Slack text, Slack interactive payload, request ID do client cung cấp, hay tool result. Chỉ policy engine server-side được quyết định allow/deny/approval_required.
+- Mọi action phải được biểu diễn bằng dữ liệu có schema rõ ràng: `action`, `target`, `arguments`, `requester_user_id`, `event_id/run_id`, `requested_at`.
+- Canonicalize action/target/arguments trước khi hash/bind approval hoặc confirmation token. Không dùng string comparison mơ hồ, JSON key order không ổn định, hay chỉ bind action name.
+- Read-only chỉ cho phép capability đã được hardcoded allowlist và RBAC giới hạn. Không có arbitrary MCP tool name, PromQL, URL, namespace, shell command hoặc Kubernetes resource verb từ user/model.
+- Write/scale:
+  - Chỉ cho phép catalog action cố định, ban đầu giới hạn `scale_deployment` với namespace/target đã allowlist.
+  - Phải có approval record durable trong Redis.
+  - Approval phải bind `requester_user_id`, `approver_user_id`, `action`, `target`, canonical arguments, request/event ID, issued time và expiry.
+  - Approver phải là identity riêng, không được self-approve.
+  - Approval token/record là one-time, dùng atomic consume để không bị replay/race condition.
+  - Approval hết hạn hoặc mismatch bất kỳ field nào phải deny trước tool call.
+- Destructive:
+  - Không cấp Kubernetes `delete`/mutation destructive RBAC trong task này.
+  - Implement policy framework cho destructive action nhưng default deny nếu chưa có capability được operator phê duyệt.
+  - Nếu một destructive capability được đăng ký trong tương lai, bắt buộc cả approval hợp lệ và confirmation token one-time hết hạn; token bind đủ requester + action + target + canonical arguments + request ID.
+  - Confirmation token không phải credential, không thể dùng để nâng quyền hoặc thay thế approval.
+- Dùng Redis durable cho approval/token state, atomic check-and-consume, TTL phù hợp. Không dùng in-memory state, global dictionary hoặc client-side token là nguồn chân lý.
+- Nếu mutation đã bắt đầu nhưng kết quả không xác định do timeout/network failure, không tự retry side effect. Ghi trạng thái `reconciliation_required` đã sanitize/audit để tránh thực thi lặp.
+- Identity thực thi write phải tách với read-only identity. Nếu thêm manifest, tạo ServiceAccount/Role/RoleBinding tối thiểu riêng chỉ có quyền `patch/update` subresource `deployments/scale` trong namespace allowlist; không thêm `delete`, wildcard verb/resource hoặc ClusterRole rộng.
+- Identity thật, Slack token, HMAC key/token signing key, Redis URL, namespace allowlist và approver allowlist chỉ lấy từ env/Kubernetes Secret. Không hardcode, log hoặc commit chúng.
+- Token generation phải dùng secure randomness; verify constant-time khi có secret signature; token không lộ approval data, secret hay user metadata.
+- Audit JSON cho mọi policy decision và tool call: UTC timestamp, event/run ID, requester, approver nếu có, action/tool, target, decision (`allowed`, `denied`, `approval_required`), expiry/consumed state và sanitized summary. Không log raw Slack payload, token value, secret, kubeconfig, raw MCP/Kubernetes error hoặc document/RAG content.
+- Mọi error public phải sanitize. Không nuốt exception, không retry vô hạn, không bypass policy để làm test/demo xanh.
+- Dùng type hints đầy đủ, controlled errors, dependency pin/hash và conventions hiện có.
+- Không sửa/xóa/skip/xfail test hay giảm assertion để làm test xanh.
+
+## 3. Tiêu chí thành công (Acceptance Criteria)
+
+- Read-only intent/tool trong allowlist được chạy tự động; tool/action ngoài allowlist bị deny trước khi gọi MCP.
+- Write/scale request ban đầu trả `approval_required`; không gọi write executor.
+- Chỉ approval từ approver identity được allowlist và khác requester mới được chấp nhận.
+- Approval bị từ chối nếu requester, action, target, canonical arguments, request ID hoặc expiry không khớp.
+- Approval record chỉ dùng một lần; hai execution đồng thời với cùng approval chỉ có tối đa một lần đi đến executor.
+- Approval expired, replayed, malformed hoặc self-approved đều bị deny và có audit.
+- Destructive request không có approval + confirmation token hợp lệ bị deny; token expired/replayed/mismatched bị deny.
+- Không có RBAC destructive/delete được thêm. Write RBAC, nếu được thêm, chỉ cho scale subresource trong namespace cụ thể.
+- Timeout/unknown write result không tự retry action; có audit `reconciliation_required` đã sanitize.
+- Tất cả decision và tool calls tạo audit record hợp lệ, có `allowed`, `denied` và `approval_required` scenarios phục vụ verifier Day 5.
+- Có tests cho:
+  - read allowlist/deny;
+  - write approval required;
+  - distinct approver identity và self-approval deny;
+  - bind mismatch của từng field;
+  - expiry, one-time consume, replay và concurrent consume;
+  - destructive confirmation required/expired/replayed/mismatch;
+  - write executor không chạy trước approval;
+  - unknown mutation outcome không retry;
+  - RBAC manifest least-privilege;
+  - audit sanitization và no-secret/no-token leakage.
+- `pytest chatops-bot/tests/`, các tests milestone Day 5 liên quan, và `git diff --check` đều PASS.
+
+## 4. Ví dụ pattern tham chiếu (Reference)
+
+- `kubernetes/mcp/mcp-readonly.yaml`: reference cho RBAC least-privilege read-only; không mở rộng quyền của identity này.
+- `tools/mcp/src/core.mjs`: server-side allowlist hai lớp và fixed-capability pattern; `readOnlyHint` không thay enforcement.
+- `chatops-bot/app/audit.py` và `scripts/VERIFICATION_CONTRACT.md`: contract audit JSON, decision và test-run observation.
+- `Running-Project-Specification-Student.md` mục 9 và `AGENTS.md`: read auto, write approval identity riêng, destructive confirmation token hết hạn; enforcement phải ở host/server/RBAC, không ở prompt.
+- Queue/dedup state pattern hiện có tại `api/app/services/queue.py` và `ingestion-worker/worker.py`: tham khảo durability/idempotency, nhưng không sao chép ingestion pipeline.
+
+## 5. Quy trình thực hiện (Process / Output Expected)
+
+- Trình bày KẾ HOẠCH (PLAN) trước, gồm:
+  1. file dự kiến sửa/thêm;
+  2. action catalog và policy state machine;
+  3. canonicalization/hash format;
+  4. Redis key design, TTL và atomic consume strategy;
+  5. identity/approver model;
+  6. behavior khi mutation result không xác định;
+  7. RBAC manifest thay đổi, nếu có;
+  8. test matrix.
+- ĐỢI TÔI DUYỆT PLAN rồi mới sửa file.
+- Trước khi sửa, đọc toàn bộ Slack adapter, queue/worker, MCP client, audit code, Day 5 tests và RBAC hiện có.
+- Sau khi sửa, chạy các test ở Acceptance Criteria và báo cáo output.
+- Báo cáo rõ:
+  - action nào hiện thực thi được và action nào default-deny;
+  - tên env var/Secret reference cần operator cấu hình, không kèm giá trị;
+  - RBAC quyền chính xác của read/write identity;
+  - manual verification cho approval expiry, replay và destructive-token denial.
+- Không tạo/apply ServiceAccount, RoleBinding, Secret hoặc cloud/Kubernetes mutation; chỉ chuẩn bị source/manifest. Không gửi Slack message thật nếu chưa có quyền riêng.
+```
+
+**Vì sao prompt hiệu quả**:
+
+- Đặt quyền quyết định ở policy layer và RBAC, đồng thời coi toàn bộ Slack/LLM/tool input là không tin cậy, nên prompt không thể nâng quyền.
+- Bắt buộc canonical binding của requester, action, target, arguments, request ID và expiry, rồi atomic consume Redis, giúp chống replay và race condition thay vì chỉ kiểm tra tên action.
+- Tách read identity khỏi writer identity, giới hạn writer vào `deployments/scale`, và giữ destructive default-deny để giảm blast radius.
+- Biến outcome mutation không xác định thành trạng thái reconciliation có audit, không tự retry side effect có thể đã chạy.
+
+**Quyết định / Review**:
+
+- Người dùng đã duyệt plan trước khi sửa source. Phạm vi thực hiện giữ trong `chatops-bot/**`, test ChatOps và manifest RBAC writer riêng; không sửa schema, web, ingestion pipeline, MCP read-only hoặc Day 1–4 behavior.
+- Read-only tiếp tục chỉ dùng các intent/capability fixed allowlist. Write catalog hiện chỉ có `scale_deployment`, với target từ namespace/deployment allowlist do operator cấu hình. Destructive framework tồn tại nhưng không có destructive capability được đăng ký, nên default-deny.
+- Approval record và confirmation state là Redis durable state. Binding dùng JSON canonical, SHA-256 versioned hash, TTL bounded và Lua atomic consume; approver phải nằm trong allowlist và khác requester. Token confirmation dùng secure randomness/HMAC constant-time comparison, không được ghi audit.
+- Writer chỉ được bật khi operator cấu hình writer identity riêng. [chatops-scale-writer.yaml](../kubernetes/chatops/chatops-scale-writer.yaml) chỉ cấp `patch`/`update` cho `apps/deployments/scale` trong `insighthub-prod`; không có `delete`, wildcard hay ClusterRole. Không apply manifest, tạo Secret, gửi Slack thật hoặc mutate Kubernetes/cloud.
+- Timeout/network ambiguity của write tạo `reconciliation_required` sanitized audit state và không được ARQ retry side effect. Audit giữ UTC timestamp, event/run ID, requester/approver, action, target, decision, expiry/consumed state và summary đã sanitize; không giữ raw Slack payload, token, secret hay provider error.
+- Đã thêm tests cho allowlist/deny, approval requirement, approver/self-approval, binding mismatch, expiry/replay/concurrent consume, destructive confirmation, executor precondition, unknown outcome, RBAC và audit sanitization. `pytest chatops-bot/tests/` đã PASS: **58 passed in 8.25s**; `git diff --check` PASS.
+- Rủi ro còn lại: unit/transport doubles không phải evidence Slack LIVE, Redis runtime hoặc Kubernetes authorization runtime. Writer vẫn disabled cho tới khi operator cấu hình Secret/environment và áp dụng manifest qua quy trình được duyệt.

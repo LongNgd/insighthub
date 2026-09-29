@@ -24,6 +24,7 @@ class IntentResult:
 
     action: str
     reply_text: str
+    approval_request_id: str | None = None
 
 
 IntentHandler = Callable[[NormalizedSlackEvent], Awaitable[IntentResult]]

@@ -32,6 +32,14 @@ class Settings:
     slack_reply_timeout_seconds: float
     slack_bot_token: str
     slack_api_base_url: str
+    approver_user_ids: frozenset[str]
+    scale_deployment_allowlist: frozenset[str]
+    approval_ttl_seconds: int
+    confirmation_ttl_seconds: int
+    confirmation_hmac_key: str
+    write_enabled: bool
+    write_kubernetes_api_url: str
+    write_kubernetes_bearer_token: str
 
     @property
     def slack_adapter_ready(self) -> bool:
@@ -82,6 +90,24 @@ def get_settings() -> Settings:
         ),
         slack_bot_token=os.getenv("SLACK_BOT_TOKEN", "").strip(),
         slack_api_base_url=os.getenv("SLACK_API_BASE_URL", "").strip().rstrip("/"),
+        approver_user_ids=_identifier_set("CHATOPS_APPROVER_USER_IDS"),
+        scale_deployment_allowlist=_deployment_set(
+            "CHATOPS_SCALE_DEPLOYMENT_ALLOWLIST"
+        ),
+        approval_ttl_seconds=_bounded_int(
+            "CHATOPS_APPROVAL_TTL_SECONDS", 900, 60, 3600
+        ),
+        confirmation_ttl_seconds=_bounded_int(
+            "CHATOPS_CONFIRMATION_TTL_SECONDS", 60, 15, 300
+        ),
+        confirmation_hmac_key=os.getenv("CHATOPS_CONFIRMATION_HMAC_KEY", "").strip(),
+        write_enabled=_boolean("CHATOPS_WRITE_ENABLED", False),
+        write_kubernetes_api_url=os.getenv(
+            "CHATOPS_WRITE_KUBERNETES_API_URL", ""
+        ).strip().rstrip("/"),
+        write_kubernetes_bearer_token=os.getenv(
+            "CHATOPS_WRITE_KUBERNETES_BEARER_TOKEN", ""
+        ).strip(),
     )
 
 
@@ -130,3 +156,39 @@ def _required_namespace(name: str) -> str:
     if value[0] == "-" or value[-1] == "-" or any(char not in allowed for char in value):
         raise ValueError(f"{name} must be a Kubernetes namespace")
     return value
+
+
+def _boolean(name: str, default: bool) -> bool:
+    """Read an explicit feature flag without accepting ambiguous values."""
+
+    value = os.getenv(name, "1" if default else "0").strip()
+    if value == "1":
+        return True
+    if value == "0":
+        return False
+    raise ValueError(f"{name} must be 0 or 1")
+
+
+def _identifier_set(name: str) -> frozenset[str]:
+    """Read operator-owned Slack identities, never values from an event."""
+
+    values = [item.strip() for item in os.getenv(name, "").split(",") if item.strip()]
+    if any(not item.isascii() or not item.replace("-", "").isalnum() for item in values):
+        raise ValueError(f"{name} contains an invalid identity")
+    return frozenset(values)
+
+
+def _deployment_set(name: str) -> frozenset[str]:
+    """Read a fixed deployment allowlist for the sole write action."""
+
+    values = [item.strip() for item in os.getenv(name, "").split(",") if item.strip()]
+    allowed = set("abcdefghijklmnopqrstuvwxyz0123456789-")
+    if any(
+        len(item) > 63
+        or item[0] == "-"
+        or item[-1] == "-"
+        or any(character not in allowed for character in item)
+        for item in values
+    ):
+        raise ValueError(f"{name} contains an invalid deployment name")
+    return frozenset(values)

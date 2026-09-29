@@ -41,3 +41,27 @@ class McpSchemaError(PermanentProcessingError):
     """An MCP response did not meet the narrow projection expected by the bot."""
 
     code = "mcp_schema_error"
+
+
+class PolicyDenied(PermanentProcessingError):
+    """Raised when server-side authorization rejects a requested action."""
+
+    code = "policy_denied"
+
+
+class PolicyUnavailable(TransientProcessingError):
+    """Raised when durable authorization state cannot be reached."""
+
+    code = "policy_unavailable"
+
+
+class MutationExecutorUnavailable(PermanentProcessingError):
+    """Raised before a write when its distinct executor is not configured."""
+
+    code = "mutation_executor_unavailable"
+
+
+class MutationOutcomeUnknown(PermanentProcessingError):
+    """A mutation might have started; it must be reconciled, never retried."""
+
+    code = "reconciliation_required"

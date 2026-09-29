@@ -14,6 +14,7 @@ from app.events import NormalizedSlackEvent
 
 
 PROCESS_EVENT_JOB = "process_slack_event_job"
+PROCESS_APPROVED_ACTION_JOB = "process_approved_action_job"
 
 _pool: ArqRedis | None = None
 
@@ -114,6 +115,23 @@ async def enqueue_authenticated_event(event: NormalizedSlackEvent) -> EnqueueRes
         summary="queued",
     )
     return EnqueueResult(accepted=True)
+
+
+async def enqueue_approved_action(request_id: str) -> None:
+    """Queue a server-approved action identifier; never client action fields."""
+
+    settings = get_settings()
+    try:
+        pool = await initialize_queue()
+        job: Any = await pool.enqueue_job(
+            PROCESS_APPROVED_ACTION_JOB,
+            request_id,
+            _queue_name=settings.queue_name,
+        )
+    except Exception as error:
+        raise QueueUnavailable() from error
+    if job is None:
+        raise QueueUnavailable()
 
 
 def _dedup_key(event: NormalizedSlackEvent) -> str:

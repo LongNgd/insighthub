@@ -7,7 +7,12 @@ from app.errors import PermanentProcessingError, TransientProcessingError
 from app.events import NormalizedSlackEvent
 
 
-async def send_deferred_reply(event: NormalizedSlackEvent, reply_text: str) -> None:
+async def send_deferred_reply(
+    event: NormalizedSlackEvent,
+    reply_text: str,
+    *,
+    approval_request_id: str | None = None,
+) -> None:
     """Post one deferred reply with a stable opaque client id across retries."""
 
     settings = get_settings()
@@ -19,6 +24,23 @@ async def send_deferred_reply(event: NormalizedSlackEvent, reply_text: str) -> N
         "text": reply_text,
         "client_msg_id": event.reply_client_message_id,
     }
+    if approval_request_id is not None:
+        # The only interactive value is an opaque server request ID. The handler
+        # reloads requester, target and arguments from Redis after Slack auth.
+        request_payload["blocks"] = [
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "Approve scale"},
+                        "style": "primary",
+                        "action_id": "chatops.approve_scale",
+                        "value": approval_request_id,
+                    }
+                ],
+            }
+        ]
     try:
         async with httpx.AsyncClient(timeout=settings.slack_reply_timeout_seconds) as client:
             response = await client.post(
