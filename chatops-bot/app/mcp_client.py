@@ -1,31 +1,39 @@
-"""Fixed read-only MCP calls for the ChatOps worker.
+"""Fixed local STDIO MCP calls for the ChatOps worker.
 
-This module intentionally exposes capability methods rather than a generic
-``call_tool`` API.  The Slack event text cannot select an endpoint, tool,
-namespace, headers, or arguments.
+The worker launches a source-owned Node bridge with no shell and no stdin.
+Slack text therefore cannot choose an executable, MCP server, tool, namespace,
+or tool arguments. The bridge starts the pinned local MCP packages itself.
 """
 
 import asyncio
 import json
 import math
+import os
 import re
 from collections.abc import Mapping
 from datetime import date as calendar_date, timedelta
+from pathlib import Path
 from typing import Protocol
-from uuid import uuid4
-
-import httpx
 
 from app.config import Settings, get_settings
 from app.errors import McpSchemaError, McpUnavailable
 
 
-INSIGHTHUB_HEALTH_TOOL = "insighthub_health"
-INSIGHTHUB_INGEST_COUNT_TOOL = "insighthub_ingest_count_today_utc"
-PROMETHEUS_SUMMARY_TOOL = "prometheus_summary"
-KUBERNETES_PODS_TOOL = "get_pods"
 REQUESTS_5M = "requests_5m"
 ERRORS_5M = "errors_5m"
+_NODE_EXECUTABLE = "node"
+_BRIDGE_PATH = (
+    Path(__file__).resolve().parents[2] / "tools" / "mcp" / "src" / "chatops-stdio.mjs"
+)
+_CAPABILITIES = frozenset(
+    {
+        "health",
+        "requests_5m",
+        "errors_5m",
+        "ingest_count_today_utc",
+        "pods_in_configured_namespace",
+    }
+)
 
 
 class ReadOnlyMcpClient(Protocol):
@@ -42,145 +50,117 @@ class ReadOnlyMcpClient(Protocol):
     async def pods(self) -> Mapping[str, object]: ...
 
 
-class HttpReadOnlyMcpClient:
-    """Minimal bounded JSON-RPC client for operator-configured MCP transports."""
+class StdioReadOnlyMcpClient:
+    """Expose fixed worker capabilities through the local source-owned bridge."""
 
-    def __init__(
-        self, settings: Settings, transport: httpx.AsyncBaseTransport | None = None
-    ) -> None:
+    def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        self._transport = transport
 
     async def health(self) -> Mapping[str, object]:
-        return await self._insighthub_call(INSIGHTHUB_HEALTH_TOOL, {})
+        return await _run_stdio_capability(self._settings, "health")
 
     async def prometheus_requests_5m(self) -> Mapping[str, object]:
-        return await self._insighthub_call(
-            PROMETHEUS_SUMMARY_TOOL, {"query": REQUESTS_5M}
-        )
+        return await _run_stdio_capability(self._settings, "requests_5m")
 
     async def prometheus_errors_5m(self) -> Mapping[str, object]:
-        return await self._insighthub_call(
-            PROMETHEUS_SUMMARY_TOOL, {"query": ERRORS_5M}
-        )
+        return await _run_stdio_capability(self._settings, "errors_5m")
 
     async def ingest_count_today_utc(self) -> Mapping[str, object]:
-        return await self._insighthub_call(INSIGHTHUB_INGEST_COUNT_TOOL, {})
+        return await _run_stdio_capability(self._settings, "ingest_count_today_utc")
 
     async def pods(self) -> Mapping[str, object]:
-        return await self._call(
-            endpoint=self._settings.kubernetes_mcp_url,
-            bearer_token=self._settings.kubernetes_mcp_bearer_token,
-            tool=KUBERNETES_PODS_TOOL,
-            arguments={"namespace": self._settings.kubernetes_namespace},
+        return await _run_stdio_capability(
+            self._settings, "pods_in_configured_namespace"
         )
-
-    async def _insighthub_call(
-        self, tool: str, arguments: Mapping[str, object]
-    ) -> Mapping[str, object]:
-        return await self._call(
-            endpoint=self._settings.insighthub_mcp_url,
-            bearer_token=self._settings.insighthub_mcp_bearer_token,
-            tool=tool,
-            arguments=arguments,
-        )
-
-    async def _call(
-        self,
-        *,
-        endpoint: str,
-        bearer_token: str,
-        tool: str,
-        arguments: Mapping[str, object],
-    ) -> Mapping[str, object]:
-        url = _mcp_endpoint(endpoint)
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
-        if bearer_token:
-            headers["Authorization"] = f"Bearer {bearer_token}"
-        payload = {
-            "jsonrpc": "2.0",
-            "id": str(uuid4()),
-            "method": "tools/call",
-            "params": {"name": tool, "arguments": dict(arguments)},
-        }
-        timeout = self._settings.mcp_timeout_seconds
-        try:
-            async with httpx.AsyncClient(
-                timeout=timeout,
-                follow_redirects=False,
-                transport=self._transport,
-            ) as client:
-                async with client.stream(
-                    "POST", url, headers=headers, json=payload
-                ) as response:
-                    if response.status_code >= 500 or response.status_code == 429:
-                        raise McpUnavailable()
-                    if response.status_code < 200 or response.status_code >= 300:
-                        raise McpSchemaError()
-                    content_length = response.headers.get("content-length")
-                    if content_length is not None and _invalid_length(
-                        content_length, self._settings.mcp_max_response_bytes
-                    ):
-                        raise McpSchemaError()
-                    body = bytearray()
-                    async for chunk in response.aiter_bytes():
-                        body.extend(chunk)
-                        if len(body) > self._settings.mcp_max_response_bytes:
-                            raise McpSchemaError()
-        except McpSchemaError:
-            raise
-        except (httpx.TimeoutException, httpx.RequestError) as error:
-            raise McpUnavailable() from error
-        try:
-            decoded = json.loads(body)
-        except (TypeError, ValueError) as error:
-            raise McpSchemaError() from error
-        return _structured_content(decoded)
 
 
 def get_readonly_mcp_client() -> ReadOnlyMcpClient:
-    """Create a per-job client; endpoints and credentials stay operator-owned."""
+    """Create a per-job local STDIO client; configuration remains operator-owned."""
 
-    return HttpReadOnlyMcpClient(get_settings())
+    return StdioReadOnlyMcpClient(get_settings())
 
 
-def _mcp_endpoint(value: str) -> str:
-    """Validate an operator endpoint without permitting user-supplied routing."""
+async def _run_stdio_capability(
+    settings: Settings, capability: str
+) -> Mapping[str, object]:
+    """Run exactly one bridge capability with bounded output and no shell."""
 
-    try:
-        url = httpx.URL(value)
-    except Exception as error:
-        raise McpUnavailable() from error
-    if (
-        url.scheme not in {"http", "https"}
-        or not url.host
-        or url.userinfo
-        or url.query
-        or url.fragment
-    ):
+    if capability not in _CAPABILITIES or not _BRIDGE_PATH.is_file():
         raise McpUnavailable()
-    return str(url)
-
-
-def _invalid_length(value: str, maximum: int) -> bool:
     try:
-        return int(value) > maximum or int(value) < 0
-    except ValueError:
-        return True
+        process = await asyncio.create_subprocess_exec(
+            _NODE_EXECUTABLE,
+            str(_BRIDGE_PATH),
+            capability,
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+            env=_bridge_environment(settings),
+        )
+    except OSError as error:
+        raise McpUnavailable() from error
+    try:
+        payload, return_code = await asyncio.wait_for(
+            _collect_bridge_output(process, settings.mcp_max_response_bytes),
+            timeout=settings.mcp_timeout_seconds,
+        )
+    except TimeoutError as error:
+        await _stop_process(process)
+        raise McpUnavailable() from error
+    except McpSchemaError:
+        await _stop_process(process)
+        raise
+    if return_code != 0:
+        raise McpUnavailable()
+    return _bridge_result(payload)
 
 
-def _structured_content(payload: object) -> Mapping[str, object]:
-    """Extract only structured MCP tool content and never surface provider errors."""
+def _bridge_environment(settings: Settings) -> dict[str, str]:
+    """Pass only non-secret, fixed bridge configuration to child processes."""
 
-    if not isinstance(payload, dict) or "error" in payload:
+    return {
+        "PATH": os.environ.get("PATH", ""),
+        "CHATOPS_INSIGHTHUB_API_URL": settings.insighthub_api_url,
+        "CHATOPS_PROMETHEUS_URL": settings.prometheus_url,
+        "CHATOPS_KUBERNETES_KUBECONFIG": settings.kubernetes_kubeconfig,
+        "CHATOPS_KUBERNETES_NAMESPACE": settings.kubernetes_namespace,
+    }
+
+
+async def _collect_bridge_output(
+    process: asyncio.subprocess.Process, maximum: int
+) -> tuple[bytes, int]:
+    if process.stdout is None:
+        raise McpUnavailable()
+    body = bytearray()
+    while chunk := await process.stdout.read(4096):
+        body.extend(chunk)
+        if len(body) > maximum:
+            raise McpSchemaError()
+    return bytes(body), await process.wait()
+
+
+async def _stop_process(process: asyncio.subprocess.Process) -> None:
+    if process.returncode is None:
+        process.kill()
+        await process.wait()
+
+
+def _bridge_result(payload: bytes) -> Mapping[str, object]:
+    """Accept a single sanitized bridge envelope and discard all error detail."""
+
+    try:
+        decoded = json.loads(payload)
+    except (TypeError, ValueError) as error:
+        raise McpSchemaError() from error
+    if not isinstance(decoded, dict) or decoded.get("ok") is not True:
+        if isinstance(decoded, dict) and decoded.get("category") == "unavailable":
+            raise McpUnavailable()
         raise McpSchemaError()
-    result = payload.get("result")
-    if not isinstance(result, dict) or result.get("isError") is True:
+    result = decoded.get("result")
+    if not isinstance(result, dict):
         raise McpSchemaError()
-    content = result.get("structuredContent")
-    if not isinstance(content, dict):
-        raise McpSchemaError()
-    return content
+    return result
 
 
 def validate_health(value: Mapping[str, object]) -> tuple[bool, bool, bool]:
@@ -280,51 +260,43 @@ def _pod_finding(item: object, restart_threshold: int) -> str | None:
         not isinstance(name, str)
         or not _POD_NAME.fullmatch(name)
         or not isinstance(phase, str)
+        or len(phase) > 32
     ):
         raise McpSchemaError()
-    reasons: set[str] = set()
-    if phase in {"Failed", "Unknown"}:
-        reasons.add(phase.lower())
-    conditions = status.get("conditions", [])
-    if not isinstance(conditions, list):
+    containers = status.get("containerStatuses")
+    if not isinstance(containers, list) or len(containers) > 50:
         raise McpSchemaError()
-    for condition in conditions:
-        if not isinstance(condition, dict):
+    restart_count = 0
+    reasons: set[str] = set()
+    for container in containers:
+        if not isinstance(container, dict):
             raise McpSchemaError()
-        if condition.get("type") == "Ready" and condition.get("status") != "True":
-            reasons.add("not_ready")
-    restarts = 0
-    for statuses_key in ("initContainerStatuses", "containerStatuses"):
-        statuses = status.get(statuses_key, [])
-        if not isinstance(statuses, list):
+        restarts = container.get("restartCount")
+        state = container.get("state")
+        if isinstance(restarts, bool) or not isinstance(restarts, int) or restarts < 0:
             raise McpSchemaError()
-        for container in statuses:
-            if not isinstance(container, dict):
+        if not isinstance(state, dict):
+            raise McpSchemaError()
+        restart_count += restarts
+        for state_name, known_reasons in (
+            ("waiting", _WAITING_REASONS),
+            ("terminated", _TERMINATED_REASONS),
+        ):
+            state_value = state.get(state_name)
+            if state_value is None:
+                continue
+            if not isinstance(state_value, dict):
                 raise McpSchemaError()
-            restart_count = container.get("restartCount", 0)
-            if isinstance(restart_count, bool) or not isinstance(restart_count, int) or restart_count < 0:
-                raise McpSchemaError()
-            restarts += restart_count
-            state = container.get("state", {})
-            if not isinstance(state, dict):
-                raise McpSchemaError()
-            waiting = state.get("waiting")
-            terminated = state.get("terminated")
-            if waiting is not None:
-                if not isinstance(waiting, dict):
-                    raise McpSchemaError()
-                reason = waiting.get("reason")
-                if reason in _WAITING_REASONS:
-                    reasons.add(str(reason))
-            if terminated is not None:
-                if not isinstance(terminated, dict):
-                    raise McpSchemaError()
-                reason = terminated.get("reason")
-                if reason in _TERMINATED_REASONS:
-                    reasons.add(str(reason))
-    if restarts >= restart_threshold:
+            reason = state_value.get("reason")
+            if reason in known_reasons:
+                reasons.add(reason)
+    if phase in {"Failed", "Unknown"}:
+        reasons.add(f"phase={phase}")
+    if restart_count >= restart_threshold:
         reasons.add(f"restarts>={restart_threshold}")
     if not reasons:
         return None
-    safe_reasons = ",".join(sorted(reasons))
-    return f"pod={name}, phase={phase}, restarts={restarts}, reasons={safe_reasons}"
+    return (
+        f"pod={name}, phase={phase}, restarts={restart_count}, "
+        f"reasons={','.join(sorted(reasons))}"
+    )

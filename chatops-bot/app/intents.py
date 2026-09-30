@@ -1,6 +1,7 @@
 """Server-side allowlist for read-only ChatOps intents."""
 
 import asyncio
+import re
 from dataclasses import dataclass
 from collections.abc import Mapping
 from typing import Awaitable, Callable, TypeVar
@@ -50,11 +51,32 @@ def _intent_name(text: str) -> str:
     """Map fixed command forms; text never becomes a tool name or arguments."""
 
     normalized = " ".join(text.casefold().split())
-    if normalized in {"health", "insighthub health"}:
+    # Slack app_mention payloads prefix the user's question with one or more
+    # opaque bot mentions. Removing only leading mention tokens preserves the
+    # fixed allowlist below without turning arbitrary text into a tool call.
+    normalized = re.sub(r"^(?:<@[a-z0-9]+>\s*)+", "", normalized).strip()
+    if normalized in {
+        "health",
+        "insighthub health",
+        "api healthy",
+        "api healthy?",
+        "insighthub có healthy không?",
+    }:
         return "insighthub_health"
-    if normalized in {"documents today", "ingest today"}:
+    if normalized in {
+        "documents today",
+        "ingest today",
+        "ingest count today",
+        "ingest count today?",
+        "hôm nay ingest bao nhiêu doc?",
+    }:
         return "insighthub_documents_today"
-    if normalized in {"failed pods", "pods failed"}:
+    if normalized in {
+        "failed pods",
+        "pods failed",
+        "which pods failing?",
+        "pod nào đang lỗi?",
+    }:
         return "kubernetes_failed_pods"
     return ""
 

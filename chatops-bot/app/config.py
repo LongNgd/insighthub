@@ -25,10 +25,9 @@ class Settings:
     kubernetes_namespace: str
     kubernetes_max_pods: int
     kubernetes_restart_threshold: int
-    insighthub_mcp_url: str
-    insighthub_mcp_bearer_token: str
-    kubernetes_mcp_url: str
-    kubernetes_mcp_bearer_token: str
+    insighthub_api_url: str
+    prometheus_url: str
+    kubernetes_kubeconfig: str
     slack_reply_timeout_seconds: float
     slack_bot_token: str
     slack_api_base_url: str
@@ -69,8 +68,8 @@ def get_settings() -> Settings:
         retry_max_seconds=_positive_float("CHATOPS_RETRY_MAX_SECONDS", 30),
         dedup_ttl_seconds=_bounded_int("CHATOPS_DEDUP_TTL_SECONDS", 86400, 60, 604800),
         reply_ttl_seconds=_bounded_int("CHATOPS_REPLY_TTL_SECONDS", 604800, 60, 604800),
-        intent_timeout_seconds=_positive_float("CHATOPS_INTENT_TIMEOUT_SECONDS", 10),
-        mcp_timeout_seconds=_bounded_float("CHATOPS_MCP_TIMEOUT_SECONDS", 5, 0.1, 10),
+        intent_timeout_seconds=_positive_float("CHATOPS_INTENT_TIMEOUT_SECONDS", 35),
+        mcp_timeout_seconds=_bounded_float("CHATOPS_MCP_TIMEOUT_SECONDS", 15, 0.1, 20),
         mcp_max_response_bytes=_bounded_int(
             "CHATOPS_MCP_MAX_RESPONSE_BYTES", 65536, 1024, 262144
         ),
@@ -79,13 +78,14 @@ def get_settings() -> Settings:
         kubernetes_restart_threshold=_bounded_int(
             "CHATOPS_KUBERNETES_RESTART_THRESHOLD", 3, 1, 100
         ),
-        insighthub_mcp_url=os.getenv("CHATOPS_INSIGHTHUB_MCP_URL", "").strip(),
-        insighthub_mcp_bearer_token=os.getenv(
-            "CHATOPS_INSIGHTHUB_MCP_BEARER_TOKEN", ""
+        insighthub_api_url=os.getenv(
+            "CHATOPS_INSIGHTHUB_API_URL", "http://127.0.0.1:8000"
         ).strip(),
-        kubernetes_mcp_url=os.getenv("CHATOPS_KUBERNETES_MCP_URL", "").strip(),
-        kubernetes_mcp_bearer_token=os.getenv(
-            "CHATOPS_KUBERNETES_MCP_BEARER_TOKEN", ""
+        prometheus_url=os.getenv(
+            "CHATOPS_PROMETHEUS_URL", "http://127.0.0.1:9090"
+        ).strip(),
+        kubernetes_kubeconfig=os.getenv(
+            "CHATOPS_KUBERNETES_KUBECONFIG", ""
         ).strip(),
         slack_reply_timeout_seconds=_positive_float(
             "CHATOPS_SLACK_REPLY_TIMEOUT_SECONDS", 10

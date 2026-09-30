@@ -1,8 +1,12 @@
-"""Bounded Slack reply adapter called only by the ARQ worker."""
+"""Bounded official Slack SDK reply adapter used only by the ARQ worker."""
 
-import httpx
+from collections.abc import Mapping
 
-from app.config import get_settings
+import aiohttp
+from slack_sdk.errors import SlackApiError, SlackClientError
+from slack_sdk.web.async_client import AsyncWebClient
+
+from app.config import Settings, get_settings
 from app.errors import PermanentProcessingError, TransientProcessingError
 from app.events import NormalizedSlackEvent
 
@@ -18,15 +22,13 @@ async def send_deferred_reply(
     settings = get_settings()
     if not settings.slack_bot_token or not settings.slack_api_base_url:
         raise PermanentProcessingError()
-    request_payload = {
+    request_payload: dict[str, object] = {
         "channel": event.channel_id,
         "thread_ts": event.thread_ts,
         "text": reply_text,
         "client_msg_id": event.reply_client_message_id,
     }
     if approval_request_id is not None:
-        # The only interactive value is an opaque server request ID. The handler
-        # reloads requester, target and arguments from Redis after Slack auth.
         request_payload["blocks"] = [
             {
                 "type": "actions",
@@ -42,27 +44,50 @@ async def send_deferred_reply(
             }
         ]
     try:
-        async with httpx.AsyncClient(timeout=settings.slack_reply_timeout_seconds) as client:
-            response = await client.post(
-                f"{settings.slack_api_base_url}/chat.postMessage",
-                headers={"Authorization": f"Bearer {settings.slack_bot_token}"},
-                json=request_payload,
-            )
-    except httpx.TimeoutException as error:
+        response = await _create_client(settings).chat_postMessage(**request_payload)
+    except SlackApiError as error:
+        _raise_classified_slack_error(
+            status_code=error.response.status_code,
+            error_code=_response_error_code(error.response.data),
+        )
+    except (SlackClientError, aiohttp.ClientError, TimeoutError) as error:
         raise TransientProcessingError() from error
-    except httpx.RequestError as error:
-        raise TransientProcessingError() from error
-
-    if response.status_code == 429 or response.status_code >= 500:
-        raise TransientProcessingError()
-    if response.status_code >= 400:
-        raise PermanentProcessingError()
-    try:
-        response_payload = response.json()
-    except ValueError as error:
-        raise TransientProcessingError() from error
-    if response_payload.get("ok") is True:
+    if response.get("ok") is True:
         return
-    if response_payload.get("error") in {"ratelimited", "internal_error", "request_timeout"}:
+    _raise_classified_slack_error(
+        status_code=_response_status_code(response),
+        error_code=_response_error_code(response),
+    )
+
+
+def _create_client(settings: Settings) -> AsyncWebClient:
+    """Create a non-retrying SDK client; ARQ owns bounded retry semantics."""
+
+    return AsyncWebClient(
+        token=settings.slack_bot_token,
+        base_url=f"{settings.slack_api_base_url}/",
+        timeout=settings.slack_reply_timeout_seconds,
+        retry_handlers=[],
+    )
+
+
+def _raise_classified_slack_error(*, status_code: int | None, error_code: str) -> None:
+    """Classify safe status/code categories without surfacing provider details."""
+
+    if status_code == 429 or (status_code is not None and status_code >= 500):
+        raise TransientProcessingError()
+    if error_code in {"ratelimited", "internal_error", "request_timeout"}:
         raise TransientProcessingError()
     raise PermanentProcessingError()
+
+
+def _response_status_code(value: object) -> int | None:
+    status_code = getattr(value, "status_code", None)
+    return status_code if isinstance(status_code, int) else None
+
+
+def _response_error_code(value: object) -> str:
+    if not isinstance(value, Mapping):
+        return ""
+    error_code = value.get("error")
+    return error_code if isinstance(error_code, str) else ""

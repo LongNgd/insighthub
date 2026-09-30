@@ -4,16 +4,16 @@ import asyncio
 import json
 import logging
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any
 
 import pytest
-import httpx
 
 from app.config import get_settings
 from app.errors import McpUnavailable, PermanentProcessingError
 from app.events import NormalizedSlackEvent
-from app import intents
-from app.mcp_client import HttpReadOnlyMcpClient, summarize_abnormal_pods, validate_ingest_count
+from app import intents, mcp_client
+from app.mcp_client import StdioReadOnlyMcpClient, summarize_abnormal_pods, validate_ingest_count
 
 
 def run(coroutine: Any) -> Any:
@@ -87,6 +87,21 @@ def test_health_returns_fixed_api_and_prometheus_context(monkeypatch: pytest.Mon
     assert "live=True, ready=True, database_ready=True" in result.reply_text
     assert "requests=11, errors=1" in result.reply_text
     assert sorted(fake.calls) == ["errors", "health", "requests"]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("<@U0BOT> api healthy?", "insighthub_health"),
+        ("<@U0BOT> ingest count today?", "insighthub_documents_today"),
+        ("<@U0BOT> which pods failing?", "kubernetes_failed_pods"),
+        ("<@U0BOT> run kubectl delete pods", ""),
+    ],
+)
+def test_intent_allowlist_strips_only_leading_slack_mentions(
+    text: str, expected: str
+) -> None:
+    assert intents._intent_name(text) == expected
 
 
 def test_health_reports_degraded_and_prometheus_unavailable_without_inventing_numbers(
@@ -233,47 +248,59 @@ def test_each_health_mcp_call_has_one_correlated_audit_record(
     assert {item["run_id"] for item in tool_records} == {event("health").run_id}
 
 
-def test_http_mcp_client_uses_fixed_tool_and_operator_namespace() -> None:
-    captured: list[dict[str, object]] = []
+def test_stdio_client_uses_only_fixed_capability_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[str] = []
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured.append(json.loads(request.content))
-        return httpx.Response(
-            200,
-            json={"jsonrpc": "2.0", "id": "ignored", "result": {"structuredContent": {"items": []}}},
-        )
+    async def run_capability(_: object, capability: str) -> Mapping[str, object]:
+        captured.append(capability)
+        return {"items": []}
 
-    settings = get_settings()
-    settings = settings.__class__(
-        **{
-            **settings.__dict__,
-            "kubernetes_mcp_url": "https://kubernetes-mcp.example/mcp",
-        }
-    )
-    client = HttpReadOnlyMcpClient(settings, httpx.MockTransport(handler))
+    monkeypatch.setattr(mcp_client, "_run_stdio_capability", run_capability)
+    client = StdioReadOnlyMcpClient(get_settings())
 
+    assert run(client.health()) == {"items": []}
+    assert run(client.prometheus_requests_5m()) == {"items": []}
+    assert run(client.prometheus_errors_5m()) == {"items": []}
+    assert run(client.ingest_count_today_utc()) == {"items": []}
     assert run(client.pods()) == {"items": []}
-    assert captured[0]["params"] == {
-        "name": "get_pods", "arguments": {"namespace": "operator-namespace"}
-    }
+    assert captured == [
+        "health",
+        "requests_5m",
+        "errors_5m",
+        "ingest_count_today_utc",
+        "pods_in_configured_namespace",
+    ]
 
 
-def test_http_mcp_timeout_is_sanitized_and_does_not_fallback() -> None:
-    def timeout(_: httpx.Request) -> httpx.Response:
-        raise httpx.ReadTimeout("provider secret")
-
-    settings = get_settings()
-    settings = settings.__class__(
-        **{
-            **settings.__dict__,
-            "insighthub_mcp_url": "https://insighthub-mcp.example/mcp",
-        }
+def test_stdio_bridge_environment_excludes_slack_and_bearer_secrets() -> None:
+    settings = replace(
+        get_settings(),
+        slack_signing_secret="signing-secret",
+        slack_bot_token="bot-token",
+        insighthub_api_url="http://127.0.0.1:8000",
+        prometheus_url="http://127.0.0.1:9090",
+        kubernetes_kubeconfig="/home/bot/.kube/mcp-readonly",
     )
-    client = HttpReadOnlyMcpClient(settings, httpx.MockTransport(timeout))
 
+    environment = mcp_client._bridge_environment(settings)
+
+    assert environment == {
+        "PATH": environment["PATH"],
+        "CHATOPS_INSIGHTHUB_API_URL": "http://127.0.0.1:8000",
+        "CHATOPS_PROMETHEUS_URL": "http://127.0.0.1:9090",
+        "CHATOPS_KUBERNETES_KUBECONFIG": "/home/bot/.kube/mcp-readonly",
+        "CHATOPS_KUBERNETES_NAMESPACE": "operator-namespace",
+    }
+    assert "signing-secret" not in environment.values()
+    assert "bot-token" not in environment.values()
+
+
+def test_stdio_bridge_rejects_provider_error_detail() -> None:
     with pytest.raises(McpUnavailable) as raised:
-        run(client.health())
-    assert "provider secret" not in str(raised.value)
+        mcp_client._bridge_result(b'{"ok": false, "category": "unavailable"}')
+    assert str(raised.value) == ""
 
 
 def _failing_pod() -> dict[str, object]:

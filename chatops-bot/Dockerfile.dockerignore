@@ -1,0 +1,6 @@
+**
+!chatops-bot/requirements.txt
+!chatops-bot/app/**
+!tools/mcp/package.json
+!tools/mcp/package-lock.json
+!tools/mcp/src/**

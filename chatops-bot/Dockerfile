@@ -1,23 +1,31 @@
-# InsightHub ChatOps Bot - Dockerfile (Day 5)
-#
-# Học viên có thể tối ưu thêm bằng AI ở Day 3 hoặc Day 5.
-# Production cần: non-root user, multi-stage để giảm size, healthcheck.
+# Build from the project root:
+# docker build -f chatops-bot/Dockerfile -t insighthub-chatops:local .
 
-FROM python:3.12.14-slim@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea AS base
+FROM node:24.16.0-bookworm-slim AS mcp-deps
+WORKDIR /opt/mcp
+COPY tools/mcp/package.json tools/mcp/package-lock.json ./
+# The ChatOps bridge uses the pinned MCP client currently declared as a dev
+# dependency, so CI must retain it until the package split is revisited.
+RUN npm ci --ignore-scripts
+
+FROM python:3.12.14-slim@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea AS python-deps
+WORKDIR /tmp/requirements
+COPY chatops-bot/requirements.txt ./
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+
+FROM python:3.12.14-slim@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea AS runtime
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 
-FROM base AS deps
-COPY requirements.txt .
-RUN pip install --no-cache-dir --require-hashes -r requirements.txt
-
-FROM base AS runtime
 RUN groupadd --system --gid 1001 botuser \
     && useradd --system --uid 1001 --gid botuser botuser
 
-COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=deps /usr/local/bin /usr/local/bin
-COPY --chown=botuser:botuser app ./app
+COPY --from=python-deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=python-deps /usr/local/bin /usr/local/bin
+COPY --from=mcp-deps /usr/local/bin/node /usr/local/bin/node
+COPY --from=mcp-deps /opt/mcp/node_modules ./tools/mcp/node_modules
+COPY --chown=botuser:botuser chatops-bot/app ./app
+COPY --chown=botuser:botuser tools/mcp/src ./tools/mcp/src
 
 USER botuser
 EXPOSE 8080

@@ -15,13 +15,58 @@ Required transport and queue configuration:
 
 - `SLACK_SIGNING_SECRET`, `SLACK_BOT_USER_ID`
 - `CHATOPS_REDIS_URL`, `CHATOPS_QUEUE_NAME`
-- `SLACK_BOT_TOKEN`, `SLACK_API_BASE_URL`
+- `SLACK_BOT_TOKEN`, `SLACK_API_BASE_URL`. `SLACK_BOT_TOKEN` is read only
+  from the environment. Never place it in source, an image layer, or evidence.
 
 Optional bounded-operation settings are `CHATOPS_QUEUE_TIMEOUT_SECONDS`,
 `CHATOPS_WORKER_MAX_TRIES` (1–3), `CHATOPS_RETRY_BASE_SECONDS`,
 `CHATOPS_RETRY_MAX_SECONDS`, `CHATOPS_DEDUP_TTL_SECONDS`,
 `CHATOPS_REPLY_TTL_SECONDS`, `CHATOPS_INTENT_TIMEOUT_SECONDS`,
 `CHATOPS_MCP_TIMEOUT_SECONDS`, and `CHATOPS_SLACK_REPLY_TIMEOUT_SECONDS`.
+
+## Local and container runtime
+
+The local Uvicorn + ngrok path is the Day 5 lab default. Keep the ignored
+`chatops-bot/.env` file local, load it into the terminal, then run the HTTP
+adapter and worker separately:
+
+```sh
+set -a && . ./.env && set +a
+uvicorn app.main:app --host 127.0.0.1 --port 8080
+# separate terminal, with the same environment
+arq app.worker.WorkerSettings
+```
+
+Use ngrok only to expose the Uvicorn listener to Slack; never include a token
+in an ngrok URL or commit it. The live bot token is supplied by the ignored
+environment file for this local lab.
+
+The image includes Python, the pinned Node runtime, custom MCP source and the
+pinned Kubernetes MCP package. Build it from the project root so the Docker
+build context can be restricted by `Dockerfile.dockerignore`:
+
+```sh
+docker build -f chatops-bot/Dockerfile -t insighthub-chatops:local .
+```
+
+For a Linux/WSL host deployment, pass runtime values through an external
+environment file or secret store and use host networking only when local API
+and Prometheus port-forwards are intentionally part of the lab. Do not pass
+secrets with `--build-arg`.
+
+For Kubernetes, create the Slack runtime secret out of band (the command does
+not write its values to the repository), then reference it from the deployment
+environment:
+
+```sh
+kubectl -n insighthub-prod create secret generic chatops-slack-runtime \
+  --from-literal=SLACK_SIGNING_SECRET="$SLACK_SIGNING_SECRET" \
+  --from-literal=SLACK_BOT_TOKEN="$SLACK_BOT_TOKEN"
+```
+
+Use a separately managed Secret or external-secret mechanism for the remaining
+runtime values, including the read-only kubeconfig. Never put bot tokens,
+signing secrets, kubeconfig, or Redis credentials in a Helm values file.
 
 ## Permission enforcement
 
@@ -51,19 +96,26 @@ nor secret values are written to audit logs.
 
 ## Read-only MCP runtime
 
-The worker has a separate JSON-RPC MCP transport; it does not read the Codex
-desktop MCP configuration or inherit a kubeconfig. Operators configure the
-following values from deployment configuration/Secrets (never commit values):
+The local-lab worker uses a source-owned STDIO bridge at
+`../tools/mcp/src/chatops-stdio.mjs`; it does not read Codex Desktop
+configuration and it never accepts a server command, MCP tool, namespace, or
+arguments from Slack. The bridge starts only the pinned local custom MCP and
+`kubernetes-mcp-server@0.0.67`. It passes the Kubernetes server
+`--read-only`, `--disable-destructive`, `--disable-multi-cluster`,
+`--cluster-provider=kubeconfig`, `--toolsets=core`, and an explicit kubeconfig
+path. RBAC remains the final enforcement layer.
 
-- `CHATOPS_INSIGHTHUB_MCP_URL` and optional
-  `CHATOPS_INSIGHTHUB_MCP_BEARER_TOKEN`: the fixed InsightHub read-only MCP
-  transport exposing health, Prometheus summaries and UTC ingest count.
-- `CHATOPS_KUBERNETES_MCP_URL` and optional
-  `CHATOPS_KUBERNETES_MCP_BEARER_TOKEN`: the dedicated read-only Kubernetes
-  MCP transport authenticated as the `mcp-readonly` ServiceAccount.
+Operators configure these non-secret paths/endpoints from local deployment
+configuration; never commit kubeconfig content or credentials:
+
+- `CHATOPS_INSIGHTHUB_API_URL` (default `http://127.0.0.1:8000`) and
+  `CHATOPS_PROMETHEUS_URL` (default `http://127.0.0.1:9090`). The existing
+  custom MCP permits only loopback origins.
+- `CHATOPS_KUBERNETES_KUBECONFIG`: an absolute path to a kubeconfig that uses
+  the `mcp-readonly` ServiceAccount. It is required for the pod intent.
 - `CHATOPS_KUBERNETES_NAMESPACE`: operator-owned namespace (default
   `insighthub-prod`), never derived from a Slack message.
-- `CHATOPS_MCP_TIMEOUT_SECONDS` (0.1–10),
+- `CHATOPS_MCP_TIMEOUT_SECONDS` (0.1–20; default 15),
   `CHATOPS_MCP_MAX_RESPONSE_BYTES` (1024–262144),
   `CHATOPS_KUBERNETES_MAX_PODS` (1–20), and
   `CHATOPS_KUBERNETES_RESTART_THRESHOLD` (1–100).
@@ -77,9 +129,10 @@ written.
 
 The only worker capabilities are `insighthub_health`,
 `prometheus_summary` with `requests_5m`/`errors_5m`,
-`insighthub_ingest_count_today_utc`, and Kubernetes `get_pods` scoped to the
-configured namespace. The router rejects all other Slack text; it never accepts
-tool names, PromQL, URLs, namespaces, shell commands, or mutation requests.
+`insighthub_ingest_count_today_utc`, and Kubernetes
+`pods_list_in_namespace` scoped to the configured namespace. The router
+rejects all other Slack text; it never accepts tool names, PromQL, URLs,
+namespaces, shell commands, or mutation requests.
 
 Dedup keys use a SHA-256 identity over team/event ID; Redis performs the initial
 `SET NX EX` claim atomically. A failed enqueue releases only its own claim. The
